@@ -1,19 +1,5 @@
 # Sema vocabulary snapshot (GENERATED)
 
-## ⚠ STAGING SNAPSHOT — PLEASE ONLY USE IN DEV
-
-This snapshot contains STAGING vocabulary: mutable words that run on dev
-brokers only. It MUST NOT be used against hybrid or production brokers.
-
-Staging words in this snapshot:
-
-- enum gw.house.alert.kind:000
-- type gw.house.alert.cleared:000
-- type gw.house.alert:000
-
-When these words promote to published, rebuild without `--allow-staged` to
-get a publication-grade snapshot (and this section disappears).
-
 This directory is a **vendored Sema snapshot**: a self-contained, generated
 subset of the Sema vocabulary. **Never hand-edit it.** To change it, edit the
 seed (`../sema_seed_request.yaml`) or the definitions in the sema repo, then

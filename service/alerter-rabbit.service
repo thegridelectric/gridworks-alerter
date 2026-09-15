@@ -4,11 +4,13 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+Type=simple
 User=alerter
 WorkingDirectory=/home/alerter/gridworks-alerter
 ExecStart=/home/alerter/gridworks-alerter/.venv/bin/gwalerter rabbit
 Restart=always
 RestartSec=5
+MemoryMax=512M
 
 [Install]
 WantedBy=multi-user.target

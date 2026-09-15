@@ -1,0 +1,9 @@
+# gwalerter convenience aliases — pure spelling over systemctl/tail, no logic.
+# Sourced from the alerter login's ~/.bashrc at box setup; the sudoers
+# drop-in (/etc/sudoers.d/alerter) grants exactly these systemctl invocations.
+alias alstart='sudo systemctl start alerter-rabbit'
+alias alstop='sudo systemctl stop alerter-rabbit'
+alias alrestart='sudo systemctl restart alerter-rabbit'
+alias alstatus='systemctl status alerter-rabbit --no-pager'
+alias allog='cd "$HOME"/.local/state/gridworks/alerter/log && tail -F *.log'
+alias aljournal='journalctl -u alerter-rabbit -f'

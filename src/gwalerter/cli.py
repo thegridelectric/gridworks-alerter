@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 import time
 
 import dotenv
@@ -37,6 +38,15 @@ def seed_projection(settings: AlerterSettings, store: Store) -> None:
 
 def run_rabbit() -> None:
     settings = AlerterSettings.load()
+    # The actor's own log is gwbase's rotating file under the XDG state
+    # home; everything else this package logs (the boot forest request,
+    # the tracked-house list) goes to stdout, which is journald under
+    # systemd.
+    logging.basicConfig(
+        level=settings.log_level.upper(),
+        stream=sys.stdout,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     store = Store.open(
         settings.db_url(),
         readings_window_s=settings.readings_window_s,

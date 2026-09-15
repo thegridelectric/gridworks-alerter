@@ -1,6 +1,6 @@
 metadata:
   registry_version: "1.0"
-  last_updated: "2026-09-15T19:35:00Z"
+  last_updated: "2026-09-15T21:40:00Z"
   maintainer: "gridworks-energy"
 
 formats:
@@ -130,7 +130,7 @@ enums:
       "000":
         schema_url: "https://schemas.electricity.works/enums/gw.house.alert.kind/000"
         created: "2026-09-15T19:35:00Z"
-        status: "staging"
+        status: "published"
 
   gw1.actor.class:
     latest_version: "011"
@@ -564,7 +564,7 @@ types:
       "000":
         schema_url: "https://schemas.electricity.works/types/gw.house.alert/000"
         created: "2026-09-15T19:35:00Z"
-        status: "staging"
+        status: "published"
         summary: "Initial Sema version. Axiom 1 TerminalAssetAliasConstraint: AboutGNodeAlias names the house's terminal asset (suffix .ta), never its scada."
         direct_dependencies:
           structural:
@@ -584,7 +584,7 @@ types:
       "000":
         schema_url: "https://schemas.electricity.works/types/gw.house.alert.cleared/000"
         created: "2026-09-15T19:35:00Z"
-        status: "staging"
+        status: "published"
         summary: "Initial Sema version. Axiom 1 TerminalAssetAliasConstraint as on gw.house.alert."
         direct_dependencies:
           structural:

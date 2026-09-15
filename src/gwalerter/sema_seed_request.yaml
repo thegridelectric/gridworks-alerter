@@ -9,10 +9,8 @@
 # The alerter decodes what the fleet's scadas send: every report.event
 # version on the wire, and the published layout.lite versions the current
 # scada releases send, projects the registry's forest broadcasts and
-# requests one at boot, and emits the house alert words. Publication-grade
-# once it runs against hw1: the alerter is a prod service. During the
-# dev-broker phase the alert words are staging; they are promoted before
-# the shadow run and the seed narrows back to the published set then.
+# requests one at boot, and emits the house alert words. Published words
+# only: the alerter is a prod service.
 
 initial_targets:
   types:

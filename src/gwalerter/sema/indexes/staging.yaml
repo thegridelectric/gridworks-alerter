@@ -1,5 +1,0 @@
-staging: true
-staging_words:
-- enum gw.house.alert.kind:000
-- type gw.house.alert.cleared:000
-- type gw.house.alert:000
