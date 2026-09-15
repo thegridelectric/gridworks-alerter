@@ -1,0 +1,60 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://schemas.electricity.works/types/fsm.full.report/000"
+
+title: "fsm.full.report"
+type: object
+description: >
+  Full FSM report emitted for a trigger, including the ordered list of atomic
+  report items produced by the state machine.
+
+properties:
+  FromName:
+    $ref: "https://schemas.electricity.works/formats/spaceheat.name"
+
+  TriggerId:
+    $ref: "https://schemas.electricity.works/formats/uuid4.str"
+
+  AtomicList:
+    type: array
+    items:
+      $ref: "https://schemas.electricity.works/types/fsm.atomic.report/000"
+
+  TypeName:
+    const: "fsm.full.report"
+
+  Version:
+    const: "000"
+
+required:
+  - FromName
+  - TriggerId
+  - AtomicList
+  - TypeName
+  - Version
+
+additionalProperties: true
+
+examples:
+  - |
+    {
+      "FromName": "s",
+      "TriggerId": "9cff2689-eadc-4577-94ea-6d86d0d23e9e",
+      "AtomicList": [
+        {
+          "MachineHandle": "auto.pico-cycler.vdc-relay-gpio-23",
+          "StateEnum": "relay.closed.or.open",
+          "ReportType": "Action",
+          "ActionType": "RelayPinSet",
+          "Action": 1,
+          "UnixTimeMs": 1774956898001,
+          "TriggerId": "2f18a5a0-cdf9-4782-95a9-5fbb44d3512f",
+          "TypeName": "fsm.atomic.report",
+          "Version": "000"
+        }
+      ],
+      "TypeName": "fsm.full.report",
+      "Version": "000"
+    }
+
+x-gridworks:
+  owner: "gridworks-energy"

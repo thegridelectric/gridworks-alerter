@@ -1,0 +1,34 @@
+{
+  "TypeName": "pico.flow.module.component.gt",
+  "Version": "000",
+  "ComponentId": "30e25b97-60bf-40e3-870a-1ba80bf3b164",
+  "ComponentAttributeClassId": "9d045a8d-12ee-43e6-8d7b-11c77b19de2f",
+  "ConfigList": [
+    {
+      "TypeName": "channel.config",
+      "Version": "000",
+      "ChannelName": "sieg-flow",
+      "CapturePeriodS": 10,
+      "AsyncCapture": true,
+      "Exponent": 2,
+      "Unit": "Gpm"
+    }
+  ],
+  "DisplayName": "sieg-flow HallFlowModule",
+  "HwUid": "pico_4e6e35",
+  "Enabled": true,
+  "SerialNumber": "1010",
+  "FlowNodeName": "sieg-flow",
+  "FlowMeterType": "SAIER__SENHZG1WA",
+  "HzCalcMethod": "BasicExpWeightedAvg",
+  "GpmFromHzMethod": "Constant",
+  "ConstantGallonsPerTick": 0.0009,
+  "SendHz": true,
+  "SendGallons": false,
+  "SendTickLists": false,
+  "NoFlowMs": 250,
+  "AsyncCaptureThresholdGpmTimes100": 10,
+  "PublishEmptyTicklistAfterS": 7,
+  "PublishTicklistPeriodS": 10,
+  "ExpAlpha": 0.2
+}

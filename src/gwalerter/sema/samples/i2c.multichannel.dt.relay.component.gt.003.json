@@ -1,0 +1,34 @@
+{
+  "TypeName": "i2c.multichannel.dt.relay.component.gt",
+  "Version": "003",
+  "ComponentId": "25f344ee-39ea-4904-bff9-54f2022337af",
+  "ComponentAttributeClassId": "29eab8b1-100f-4230-bb44-3a2fcba33cc3",
+  "ConfigList": [
+    {
+      "TypeName": "relay.actor.config",
+      "Version": "002",
+      "ChannelName": "vdc-relay1",
+      "PollPeriodMs": 200,
+      "CapturePeriodS": 300,
+      "AsyncCapture": true,
+      "Exponent": 0,
+      "Unit": "Unitless",
+      "RelayIdx": 1,
+      "ActorName": "relay1",
+      "WiringConfig": "NormallyClosed",
+      "EventType": "change.relay.state",
+      "DeEnergizingEvent": "CloseRelay",
+      "EnergizingEvent": "OpenRelay",
+      "StateType": "relay.closed.or.open",
+      "DeEnergizedState": "RelayClosed",
+      "EnergizedState": "RelayOpen"
+    }
+  ],
+  "DisplayName": "I2C Relay Board",
+  "HwUid": "i2c.krida.double.emr16.v1.29eab8",
+  "I2cBus": "primary-scada",
+  "I2cAddressList": [
+    32,
+    33
+  ]
+}

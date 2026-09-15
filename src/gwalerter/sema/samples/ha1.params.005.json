@@ -1,0 +1,20 @@
+{
+  "TypeName": "ha1.params",
+  "Version": "005",
+  "AlphaTimes10": 55,
+  "BetaTimes100": -10,
+  "GammaEx6": 0,
+  "IntermediatePowerKw": 1.5,
+  "IntermediateRswtF": 100,
+  "DdPowerKw": 5.5,
+  "DdRswtF": 150,
+  "DdDeltaTF": 20,
+  "HpMaxKwTh": 14.0,
+  "MaxEwtF": 170,
+  "LoadOverestimationPercent": 0,
+  "CopIntercept": 3.2,
+  "CopOatCoeff": 0.02,
+  "CopLwtCoeff": -0.01,
+  "CopMin": 1.4,
+  "CopMinOatF": -5.0
+}

@@ -1,0 +1,22 @@
+# Seed request for gridworks-alerter (gwalerter).
+#
+# Regenerate the snapshot after editing this seed:
+#   scripts/regen_sema_snapshot.sh
+# (runs `sema snapshot prepare <this file>` + `build --package-name gwalerter`
+# in the sema repo, then mirrors output/sema -> src/gwalerter/sema).
+# src/gwalerter/sema is generated — edit this seed, not the vendored output.
+#
+# The alerter decodes what the fleet's scadas send: every report.event
+# version on the wire, and the published layout.lite versions the current
+# scada releases send. Published set only: the alerter is a prod service,
+# so its snapshot is publication-grade; widen when scada promotes.
+
+initial_targets:
+  types:
+    report.event:
+      include_all_versions: true
+    layout.lite:
+      versions: ["011", "012"]
+
+local_names:
+  strip_prefixes: [gw1, gw]

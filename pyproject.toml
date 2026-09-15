@@ -1,0 +1,75 @@
+[project]
+name = "gridworks-alerter"
+version = "0.0.1"
+description = "GridWorks house alerter — a gwbase actor on the fleet broker with its own queue, sqlite store and sema-typed alert events."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "GridWorks", email = "gridworks@gridworks-consulting.com" },
+]
+requires-python = ">=3.12,<3.14"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "gridworks-base>=0.5.12",
+    "pydantic>=2.8.2",
+    "pydantic-settings>=2.3.4",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+gwalerter = "gwalerter.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/thegridelectric/gridworks-alerter"
+Repository = "https://github.com/thegridelectric/gridworks-alerter"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gwalerter"]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+    "pytest>=8.0",
+    "ruff>=0.5.6",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "broker: needs the gwbase dev broker on localhost:5672",
+]
+
+[tool.pyright]
+include = ["src", "tests"]
+exclude = ["src/gwalerter/sema"]
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
+
+[tool.ruff]
+target-version = "py312"
+exclude = [
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "build",
+    "dist",
+    "src/gwalerter/sema",
+]
+output-format = "concise"
+fix = true
+show-fixes = true
+
+[tool.ruff.format]
+preview = true
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+preview = true

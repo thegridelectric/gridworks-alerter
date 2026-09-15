@@ -1,0 +1,11 @@
+{
+  "TypeName": "derived.channel.gt",
+  "Version": "000",
+  "Id": "23bf86b8-266a-4244-9b72-914179ab85aa",
+  "Name": "usable-energy",
+  "CreatedByNodeName": "derived-generator",
+  "Strategy": "layer-by-layer",
+  "OutputUnit": "WattHours",
+  "DisplayName": "Usable Energy Wh",
+  "TerminalAssetAlias": "d1.isone.ct.newhaven.orange1.ta"
+}

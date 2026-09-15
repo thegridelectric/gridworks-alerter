@@ -1,0 +1,62 @@
+from typing import Literal
+from pydantic import ValidationError, model_validator
+from gwalerter.sema.base import SemaType
+from gwalerter.sema.enums import Quantity
+from gwalerter.sema.enums import SpaceheatTelemetryName
+from gwalerter.sema.property_format import LeftRightDot
+from gwalerter.sema.property_format import SpaceheatName
+from gwalerter.sema.property_format import UTCSeconds
+from gwalerter.sema.property_format import UUID4Str
+from gwalerter.sema.types.spaceheat_telemetry_quantity_projection import (
+    SpaceheatTelemetryQuantityProjection,
+)
+
+
+class DataChannelGt(SemaType):
+    """Sema: https://schemas.electricity.works/types/data.channel.gt/002"""
+
+    name: SpaceheatName
+    display_name: str
+    about_node_name: SpaceheatName
+    captured_by_node_name: SpaceheatName
+    telemetry_name: SpaceheatTelemetryName
+    quantity: Quantity
+    terminal_asset_alias: LeftRightDot
+    in_power_metering: bool | None = None
+    start_s: UTCSeconds | None = None
+    id: UUID4Str
+    type_name: Literal["data.channel.gt"] = "data.channel.gt"
+    version: Literal["002"] = "002"
+
+    @model_validator(mode="after")
+    def check_axiom_1(self) -> "DataChannelGt":
+        """
+        Axiom 1: PowerMeteringConstraint
+        If InPowerMetering is true, TelemetryName SHALL equal PowerW.
+        """
+        if (
+            self.in_power_metering
+            and self.telemetry_name != SpaceheatTelemetryName.PowerW
+        ):
+            raise ValueError(
+                "Axiom 1 failed: telemetry_name must be PowerW when in_power_metering is true."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def check_axiom_2(self) -> "DataChannelGt":
+        """
+        Axiom 2: TelemetryQuantityConsistency
+        Quantity SHALL equal the Quantity defined by the canonical
+        spaceheat.telemetry.quantity.projection/000 instance for the specified TelemetryName.
+        """
+        try:
+            SpaceheatTelemetryQuantityProjection(
+                telemetry_name=self.telemetry_name,
+                quantity=self.quantity,
+            )
+        except ValidationError as e:
+            raise ValueError(
+                "Axiom 2 failed: quantity is inconsistent with telemetry_name."
+            ) from e
+        return self

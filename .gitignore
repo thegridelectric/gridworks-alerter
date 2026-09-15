@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+
+# uv / venv
+.venv/
+# NB: uv.lock IS tracked — this is a deployed service, lock-for-reproducibility.
+
+# Editor / IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Tooling caches
+.ruff_cache/
+.pytest_cache/
+
+# Local secrets — NEVER commit
+.env

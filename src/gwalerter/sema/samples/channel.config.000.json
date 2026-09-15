@@ -1,0 +1,9 @@
+{
+  "TypeName": "channel.config",
+  "Version": "000",
+  "ChannelName": "scada",
+  "CapturePeriodS": 1,
+  "AsyncCapture": false,
+  "Exponent": 0,
+  "Unit": "Unknown"
+}

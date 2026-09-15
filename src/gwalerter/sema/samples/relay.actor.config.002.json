@@ -1,0 +1,19 @@
+{
+  "TypeName": "relay.actor.config",
+  "Version": "002",
+  "ChannelName": "zone1-down-failsafe-relay17",
+  "PollPeriodMs": 200,
+  "CapturePeriodS": 300,
+  "AsyncCapture": true,
+  "Exponent": 0,
+  "Unit": "Unitless",
+  "RelayIdx": 17,
+  "ActorName": "relay17",
+  "WiringConfig": "DoubleThrow",
+  "EventType": "change.heatcall.source",
+  "DeEnergizingEvent": "SwitchToWallThermostat",
+  "EnergizingEvent": "SwitchToScada",
+  "StateType": "heatcall.source",
+  "DeEnergizedState": "WallThermostat",
+  "EnergizedState": "Scada"
+}

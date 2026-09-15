@@ -1,0 +1,215 @@
+# GENERATED FILE - DO NOT EDIT
+# Generated from definitions/registry.yaml
+#
+# ------------------------------------------------------------------
+# LOCAL LOOKUP (NON-AUTHORITATIVE)
+#
+# This file provides local resolution from Sema vocabulary words
+# to schema files within this snapshot.
+# ------------------------------------------------------------------
+
+types:
+  channel.config:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/channel.config/000.yaml
+  channel.readings:
+    latest_version: '002'
+    versioning_strategy: literal
+    versions:
+      '002': definitions/types/channel.readings/002.yaml
+  data.channel.gt:
+    latest_version: '002'
+    versioning_strategy: literal
+    versions:
+      '002': definitions/types/data.channel.gt/002.yaml
+      '001': definitions/types/data.channel.gt/001.yaml
+  derived.channel.gt:
+    latest_version: '001'
+    versioning_strategy: literal
+    versions:
+      '001': definitions/types/derived.channel.gt/001.yaml
+      '000': definitions/types/derived.channel.gt/000.yaml
+  fsm.atomic.report:
+    latest_version: '001'
+    versioning_strategy: literal
+    versions:
+      '001': definitions/types/fsm.atomic.report/001.yaml
+      '000': definitions/types/fsm.atomic.report/000.yaml
+  fsm.full.report:
+    latest_version: '001'
+    versioning_strategy: literal
+    versions:
+      '001': definitions/types/fsm.full.report/001.yaml
+      '000': definitions/types/fsm.full.report/000.yaml
+  gw1.tank.temp.calibration:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/gw1.tank.temp.calibration/000.yaml
+  gw1.tank.temp.calibration.map:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/gw1.tank.temp.calibration.map/000.yaml
+  ha1.params:
+    latest_version: '006'
+    versioning_strategy: literal
+    versions:
+      '006': definitions/types/ha1.params/006.yaml
+      '005': definitions/types/ha1.params/005.yaml
+      '004': definitions/types/ha1.params/004.yaml
+  i2c.multichannel.dt.relay.component.gt:
+    latest_version: '003'
+    versioning_strategy: literal
+    versions:
+      '003': definitions/types/i2c.multichannel.dt.relay.component.gt/003.yaml
+      '002': definitions/types/i2c.multichannel.dt.relay.component.gt/002.yaml
+  layout.lite:
+    latest_version: '012'
+    versioning_strategy: literal
+    versions:
+      '012': definitions/types/layout.lite/012.yaml
+      '011': definitions/types/layout.lite/011.yaml
+  machine.states:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/machine.states/000.yaml
+  pico.flow.module.component.gt:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/pico.flow.module.component.gt/000.yaml
+  pico.tank.module.component.gt:
+    latest_version: '011'
+    versioning_strategy: literal
+    versions:
+      '011': definitions/types/pico.tank.module.component.gt/011.yaml
+  relay.actor.config:
+    latest_version: '002'
+    versioning_strategy: literal
+    versions:
+      '002': definitions/types/relay.actor.config/002.yaml
+  report:
+    latest_version: '003'
+    versioning_strategy: literal
+    versions:
+      '003': definitions/types/report/003.yaml
+      '002': definitions/types/report/002.yaml
+      '001': definitions/types/report/001.yaml
+  report.event:
+    latest_version: '004'
+    versioning_strategy: literal
+    versions:
+      '004': definitions/types/report.event/004.yaml
+      '003': definitions/types/report.event/003.yaml
+      '002': definitions/types/report.event/002.yaml
+      '000': definitions/types/report.event/000.yaml
+  sim.pico.tank.module.component.gt:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/sim.pico.tank.module.component.gt/000.yaml
+  spaceheat.node.gt:
+    latest_version: '301'
+    versioning_strategy: literal
+    versions:
+      '301': definitions/types/spaceheat.node.gt/301.yaml
+      '300': definitions/types/spaceheat.node.gt/300.yaml
+  spaceheat.telemetry.quantity.projection:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/spaceheat.telemetry.quantity.projection/000.yaml
+enums:
+  change.relay.state:
+    enum_type: literal
+    schema: definitions/enums/change.relay.state/000.yaml
+  fsm.report.type:
+    enum_type: literal
+    schema: definitions/enums/fsm.report.type/000.yaml
+  gpm.from.hz.method:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gpm.from.hz.method/000.yaml
+  gw1.actor.class:
+    enum_type: versioned
+    latest_version: '011'
+    versions:
+      '011': definitions/enums/gw1.actor.class/011.yaml
+      009: definitions/enums/gw1.actor.class/009.yaml
+  gw1.emission.method:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gw1.emission.method/000.yaml
+  gw1.quantity:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gw1.quantity/000.yaml
+  gw1.seasonal.storage.mode:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gw1.seasonal.storage.mode/000.yaml
+  gw1.system.mode:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gw1.system.mode/000.yaml
+  gw1.unit:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gw1.unit/000.yaml
+  hz.calc.method:
+    enum_type: versioned
+    latest_version: '001'
+    versions:
+      '001': definitions/enums/hz.calc.method/001.yaml
+  relay.closed.or.open:
+    enum_type: literal
+    schema: definitions/enums/relay.closed.or.open/000.yaml
+  relay.energization.state:
+    enum_type: literal
+    schema: definitions/enums/relay.energization.state/000.yaml
+  relay.wiring.config:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/relay.wiring.config/000.yaml
+  spaceheat.make.model:
+    enum_type: versioned
+    latest_version: '007'
+    versions:
+      '007': definitions/enums/spaceheat.make.model/007.yaml
+  spaceheat.telemetry.name:
+    enum_type: versioned
+    latest_version: '007'
+    versions:
+      '007': definitions/enums/spaceheat.telemetry.name/007.yaml
+      '006': definitions/enums/spaceheat.telemetry.name/006.yaml
+  spaceheat.unit:
+    enum_type: versioned
+    latest_version: '001'
+    versions:
+      '001': definitions/enums/spaceheat.unit/001.yaml
+  temp.calc.method:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/temp.calc.method/000.yaml
+formats:
+  handle.name: definitions/formats/handle.name.yaml
+  left.right.dot: definitions/formats/left.right.dot.yaml
+  non.empty.string: definitions/formats/non.empty.string.yaml
+  positive.int: definitions/formats/positive.int.yaml
+  positive.int.as.str: definitions/formats/positive.int.as.str.yaml
+  spaceheat.name: definitions/formats/spaceheat.name.yaml
+  utc.milliseconds: definitions/formats/utc.milliseconds.yaml
+  utc.seconds: definitions/formats/utc.seconds.yaml
+  uuid4.str: definitions/formats/uuid4.str.yaml
