@@ -7,7 +7,10 @@ the journal database; the two run side by side while detectors move
 over one at a time.
 
 **Inputs ride the broker.** The actor consumes the audit exchange like
-JournalKeeper does and keeps the message types it tracks:
+JournalKeeper does and keeps the message types it tracks. It is an
+Orchestrator-tier gwbase actor of transport class `Alerter`, so its alert
+words broadcast on its own `alertsmic_tx` exchange, which fans into the
+ear exchange for the manager and JournalKeeper. Tracked types:
 
 - `report.event` — each scada's periodic readings.
 - `layout.lite` — the scada's hardware layout, sent on boot; the source

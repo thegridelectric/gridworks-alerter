@@ -28,6 +28,12 @@ class AlerterSettings(ServiceSettings):
     service_alias: LeftRightDot = "d1.alerts"
     service_name: str = "alerter"  # XDG path segment for logs/state/data
 
+    # The Orchestrator tier's control plane: whose heartbeats to answer and
+    # whose simulated time to follow. No defaults: each universe names its
+    # own.
+    super_alias: LeftRightDot
+    time_coordinator_alias: LeftRightDot
+
     # The registry subtrees this alerter pages for: every Active
     # TerminalAsset under these roots is tracked, nothing else. No default:
     # each deployment declares its fleet.
@@ -49,8 +55,8 @@ class AlerterSettings(ServiceSettings):
 
     @classmethod
     def load(cls) -> "AlerterSettings":
-        """Settings from env and `.env`. `fleet_roots` and `gnr_url` have no
-        default, which pyright reads as missing constructor arguments; the
+        """Settings from env and `.env`. The fields with no default are what
+        pyright reads as missing constructor arguments; the
         settings sources supply them, so this is the one place that call
         is made."""
         return cls()  # pyright: ignore[reportCallIssue]

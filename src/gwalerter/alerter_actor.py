@@ -1,7 +1,9 @@
-"""AlerterActor — a tap on the fleet broker that keeps the store current.
+"""AlerterActor — the house alerter on the fleet broker.
 
-Consumes the audit exchange the way JournalKeeper does (bind everything,
-keep the tracked types off the parsed envelope), unwraps each `gw` body,
+An Orchestrator-tier actor of transport class Alerter: it broadcasts its
+alert words on its own mic exchange, and it also taps the audit exchange
+the way JournalKeeper does (bind everything, keep the tracked types off
+the parsed envelope), unwraps each `gw` body,
 decodes it through the vendored snapshot, and hands the typed instance
 to the store: readings and layouts from the scadas, the registry's forest
 broadcasts into the projection. A scada heard from that reports for no
@@ -13,8 +15,9 @@ from __future__ import annotations
 import time
 from collections.abc import Callable
 
-from gwbase.actor_base import ActorBase
-from gwbase.transport_encoding import RoutingEnvelope
+from gwbase.orchestrator import Orchestrator
+from gwbase.topology import EAR_EXCHANGE
+from gwbase.transport_encoding import RoutingEnvelope, TransportClass
 from gwbase.wrapped import unwrap_bytes
 
 from gwalerter.config import AlerterSettings
@@ -34,7 +37,7 @@ def now_ms() -> UTCMilliseconds:
     return int(time.time() * 1000)
 
 
-class AlerterActor(ActorBase):
+class AlerterActor(Orchestrator):
     def __init__(
         self,
         *,
@@ -43,30 +46,32 @@ class AlerterActor(ActorBase):
         codec: SemaCodec = default_codec,
         clock_ms: Callable[[], UTCMilliseconds] = now_ms,
     ) -> None:
-        super().__init__(settings=settings)
+        super().__init__(
+            settings=settings,
+            transport_class=TransportClass.Alerter,
+            my_super_alias=settings.super_alias,
+            my_time_coordinator_alias=settings.time_coordinator_alias,
+        )
         self.store = store
         self.codec = codec
         self.clock_ms = clock_ms
         self.untracked_seen: set[str] = set()
 
     def local_rabbit_startup(self) -> None:
-        """Bind everything (`#`); the tracked-type gate is in dispatch, off
+        """Tap the audit exchange with `#`, beside the class binding the
+        Orchestrator tier makes; the tracked-type gate is in dispatch, off
         the parsed envelope, because routing-key grammar is transport
         knowledge, not the alerter's."""
         self.logger.info(
-            "Binding queue %s to %s with routing key #",
-            self.queue_name,
-            self._consume_exchange,
+            "Binding queue %s to %s with routing key #", self.queue_name, EAR_EXCHANGE
         )
-        self._live_channel().queue_bind(
-            self.queue_name, self._consume_exchange, routing_key="#"
-        )
+        self._live_channel().queue_bind(self.queue_name, EAR_EXCHANGE, routing_key="#")
 
     def local_stop(self) -> None:
         super().local_stop()
         self.store.close()
 
-    def dispatch_message(self, *, envelope: RoutingEnvelope, body: bytes) -> None:
+    def process_message(self, *, envelope: RoutingEnvelope, body: bytes) -> None:
         if envelope.type_name not in TRACKED_TYPES:
             return
         received_ms = self.clock_ms()

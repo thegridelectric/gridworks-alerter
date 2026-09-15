@@ -25,6 +25,8 @@ def xdg_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         monkeypatch.setenv(var, str(tmp_path / var.lower()))
     monkeypatch.setenv("GWALERTER_FLEET_ROOTS", FLEET_ROOT)
     monkeypatch.setenv("GWALERTER_GNR_URL", GNR_URL)
+    monkeypatch.setenv("GWALERTER_SUPER_ALIAS", "d1.super1")
+    monkeypatch.setenv("GWALERTER_TIME_COORDINATOR_ALIAS", "d1.time")
     return tmp_path
 
 
