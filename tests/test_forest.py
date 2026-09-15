@@ -1,6 +1,6 @@
 """The registry projection: forests upsert by id, an older forest never
-overwrites a newer one, and tracked houses are the Active terminal assets
-under the fleet roots."""
+overwrites a newer one, and tracked houses are the Pending or Active
+terminal assets under the fleet roots."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from tests.conftest import FLEET_ROOT, forest, g_node, house_nodes
 
 SPRUCE = f"{FLEET_ROOT}.spruce"
 BEECH = f"{FLEET_ROOT}.beech"
+ELM = f"{FLEET_ROOT}.elm"
 HONEYSUCKLE = "d1.isone.me.versant.bench.honeysuckle"
 
 
@@ -21,16 +22,22 @@ def load(
     store.upsert_forest(default_codec.from_dict(payload, expect=GNodeForest))
 
 
-def test_tracked_houses_are_active_terminal_assets_under_the_roots(
+def test_tracked_houses_are_pending_or_active_terminal_assets_under_the_roots(
     store: Store,
 ) -> None:
     load(
         store,
         house_nodes(SPRUCE)
         + house_nodes(BEECH, status="Pending")
+        + house_nodes(ELM, status="Suspended")
         + house_nodes(HONEYSUCKLE),
     )
-    assert [h.alias for h in store.tracked_houses()] == [f"{SPRUCE}.ta"]
+    assert [h.alias for h in store.tracked_houses()] == [
+        f"{BEECH}.ta",
+        f"{SPRUCE}.ta",
+    ]
+    assert store.tracked_house_of(f"{BEECH}.scada") is not None
+    assert store.tracked_house_of(f"{ELM}.scada") is None
 
 
 def test_scada_resolves_to_its_tracked_house(store: Store) -> None:

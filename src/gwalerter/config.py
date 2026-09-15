@@ -34,7 +34,7 @@ class AlerterSettings(ServiceSettings):
     super_alias: LeftRightDot
     time_coordinator_alias: LeftRightDot
 
-    # The registry subtrees this alerter pages for: every Active
+    # The registry subtrees this alerter pages for: every Pending or Active
     # TerminalAsset under these roots is tracked, nothing else. No default:
     # each deployment declares its fleet.
     fleet_roots: Annotated[list[LeftRightDot], NoDecode, BeforeValidator(split_commas)]

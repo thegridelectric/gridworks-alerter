@@ -4,7 +4,10 @@ readings, and the alerter's alert state.
 
 Every row in and out is a typed record: sema instances through the codec,
 or the interior records below. Which houses are tracked is not a table:
-it is every Active TerminalAsset in `g_nodes` under the fleet roots. The
+it is every TerminalAsset in `g_nodes` under the fleet roots whose status
+is Pending or Active (`TRACKED_STATUSES`): a house pages from the day it
+reports, before the registry settles its position; a Suspended house is
+out of service on purpose and does not page. The
 `HouseRecord` here is the interim for a sema liveness record word (one per
 scada: last heard, mode, live flag); when that word is published the store
 holds instances of it and this record goes.
@@ -41,6 +44,9 @@ from gwalerter.sema.types import (
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 TERMINAL_ASSET_CLASS = "TerminalAsset"
+# The registry statuses of a house that pages; Suspended and
+# PermanentlyDeactivated houses do not.
+TRACKED_STATUSES = (GNodeStatus.Pending, GNodeStatus.Active)
 TERMINAL_ASSET_SUFFIX = ".ta"
 
 LRD = TypeAdapter(LeftRightDot)
@@ -148,12 +154,12 @@ class Store:
         return None if row is None else self.g_node_of(row)
 
     def tracked_houses(self) -> list[GNodeGt]:
-        """Every Active TerminalAsset under the fleet roots, by alias."""
+        """Every Pending or Active TerminalAsset under the fleet roots, by alias."""
         with self.lock, self.session() as s:
             rows = s.scalars(
                 select(GNodeSql)
                 .where(GNodeSql.g_node_class == TERMINAL_ASSET_CLASS)
-                .where(GNodeSql.status == GNodeStatus.Active.value)
+                .where(GNodeSql.status.in_([t.value for t in TRACKED_STATUSES]))
                 .order_by(GNodeSql.alias)
             ).all()
         return [self.g_node_of(r) for r in rows if self.under_roots(r.alias)]
@@ -165,7 +171,7 @@ class Store:
         if (
             house is None
             or house.g_node_class != TERMINAL_ASSET_CLASS
-            or house.status != GNodeStatus.Active
+            or house.status not in TRACKED_STATUSES
             or not self.under_roots(house.alias)
         ):
             return None
