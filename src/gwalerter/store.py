@@ -22,15 +22,22 @@ from pydantic import TypeAdapter
 from sqlalchemy import Engine, create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from gwalerter.db_models import GNodeSql, LayoutSql, ReadingSql
+from gwalerter.db_models import AlertSql, GNodeSql, LayoutSql, ReadingSql
 from gwalerter.sema.codec import default_codec
-from gwalerter.sema.enums import GNodeStatus
+from gwalerter.sema.enums import GNodeStatus, HouseAlertKind
 from gwalerter.sema.property_format import (
     LeftRightDot,
     SpaceheatName,
     UTCMilliseconds,
 )
-from gwalerter.sema.types import GNodeForest, GNodeGt, LayoutLite, ReportEvent
+from gwalerter.sema.types import (
+    GNodeForest,
+    GNodeGt,
+    HouseAlert,
+    HouseAlertCleared,
+    LayoutLite,
+    ReportEvent,
+)
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 TERMINAL_ASSET_CLASS = "TerminalAsset"
@@ -289,6 +296,60 @@ class Store:
                 .order_by(ReadingSql.read_ms)
             ).all()
         return [self.reading(row) for row in rows]
+
+    # -- alert state ------------------------------------------------------
+
+    def open_alert(
+        self, about_g_node_alias: LeftRightDot, kind: HouseAlertKind
+    ) -> HouseAlert | None:
+        """The alert of this kind currently open on this house, if any: the
+        row with no cleared word. At most one is open per house and kind."""
+        with self.lock, self.session() as s:
+            row = s.scalar(
+                select(AlertSql)
+                .where(AlertSql.about_g_node_alias == about_g_node_alias)
+                .where(AlertSql.kind == kind.value)
+                .where(AlertSql.cleared_ms.is_(None))
+                .order_by(AlertSql.raised_ms.desc())
+            )
+        if row is None:
+            return None
+        return default_codec.from_dict(row.payload, expect=HouseAlert)
+
+    def raise_alert(self, alert: HouseAlert) -> None:
+        """Record a raised alert word. Recorded before it is broadcast, so a
+        restart between the two neither re-raises nor forgets it."""
+        with self.lock, self.session() as s:
+            s.add(
+                AlertSql(
+                    alert_id=alert.alert_id,
+                    about_g_node_alias=alert.about_g_node_alias,
+                    kind=alert.kind.value,
+                    raised_ms=alert.raised_ms,
+                    payload=alert.to_dict(),
+                )
+            )
+            s.commit()
+
+    def clear_alert(self, cleared: HouseAlertCleared) -> None:
+        """Record the cleared word against its alert, which closes it."""
+        with self.lock, self.session() as s:
+            row = s.get(AlertSql, cleared.alert_id)
+            if row is None:
+                raise KeyError(f"no alert {cleared.alert_id} to clear")
+            row.cleared_ms = cleared.cleared_ms
+            row.cleared_payload = cleared.to_dict()
+            s.commit()
+
+    def alerts(self, about_g_node_alias: LeftRightDot) -> list[HouseAlert]:
+        """Every alert ever raised on a house, oldest first."""
+        with self.lock, self.session() as s:
+            rows = s.scalars(
+                select(AlertSql)
+                .where(AlertSql.about_g_node_alias == about_g_node_alias)
+                .order_by(AlertSql.raised_ms)
+            ).all()
+        return [default_codec.from_dict(r.payload, expect=HouseAlert) for r in rows]
 
     def reading(self, row: ReadingSql) -> Reading:
         return Reading(

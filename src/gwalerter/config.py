@@ -47,6 +47,12 @@ class AlerterSettings(ServiceSettings):
     # window shorter than it.
     readings_window_s: int = 4 * 3600
 
+    # NoData: a tracked house with no arrival for this long is silent.
+    no_data_silence_s: int = 600
+
+    # How often the detectors re-evaluate their rules.
+    detector_tick_s: int = 10
+
     model_config = SettingsConfigDict(
         env_prefix="GWALERTER_",
         env_nested_delimiter="__",

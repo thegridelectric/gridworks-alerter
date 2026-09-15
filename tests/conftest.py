@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 
 from gwalerter.config import AlerterSettings
+from gwalerter.sema.property_format import LeftRightDot, UTCMilliseconds
+from gwalerter.sema.types import ChannelReadings, Report, ReportEvent
 from gwalerter.store import Store
 
 SAMPLES = Path(__file__).resolve().parents[1] / "src" / "gwalerter" / "sema" / "samples"
@@ -92,3 +94,33 @@ def forest(nodes: list[dict], roots: list[str], send_time_ms: int) -> dict:
         "TypeName": "g.node.forest",
         "Version": "002",
     }
+
+
+def report_event(
+    scada_alias: LeftRightDot, house_alias: LeftRightDot, *, read_ms: UTCMilliseconds
+) -> ReportEvent:
+    """A one-channel report from a scada, built through the snapshot
+    classes so every axiom (source, id and time propagation) validates."""
+    report_id = str(uuid.uuid4())
+    slot_start_s = read_ms // 1000 - (read_ms // 1000) % 300
+    report = Report(
+        from_g_node_alias=scada_alias,
+        from_g_node_instance_id=str(uuid.uuid4()),
+        about_g_node_alias=house_alias,
+        slot_start_unix_s=slot_start_s,
+        slot_duration_s=300,
+        channel_reading_list=[
+            ChannelReadings(
+                channel_name="hp-idu-pwr",
+                value_list=[0],
+                scada_read_time_unix_ms_list=[read_ms],
+            )
+        ],
+        state_list=[],
+        fsm_report_list=[],
+        message_created_ms=read_ms,
+        id=report_id,
+    )
+    return ReportEvent(
+        message_id=report_id, time_created_ms=read_ms, src=scada_alias, report=report
+    )
