@@ -68,6 +68,18 @@ formats:
     description: "Canonical lowercase UUIDv4 string (RFC 4122) in 8-4-4-4-12 format"
 
 enums:
+  base.g.node.class:
+    latest_version: "000"
+    owner: gridworks-energy
+    enum_type: "versioned"
+    description: "Universal physical ontology classification for Grid Nodes"
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/enums/base.g.node.class/000"
+        created: "2026-02-22T16:43:00Z"
+        status: "published"
+
   change.relay.state:
     owner: gridworks-energy
     enum_type: "literal"
@@ -83,6 +95,18 @@ enums:
     schema_url: "https://schemas.electricity.works/enums/fsm.report.type/000"
     created: "2024-10-08T17:17:00Z"
     status: "published"
+
+  g.node.status:
+    latest_version: "000"
+    owner: gridworks-energy
+    enum_type: "versioned"
+    description: "Lifecycle status of a Grid Node within the registry"
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/enums/g.node.status/000"
+        created: "2026-02-22T16:43:00Z"
+        status: "published"
 
   gpm.from.hz.method:
     latest_version: "000"
@@ -329,6 +353,23 @@ types:
             - "spaceheat.name"
             - "utc.milliseconds"
 
+  connectivity.edge.gt:
+    latest_version: "000"
+    owner: gridworks-energy
+    versioning_strategy: "literal"
+    description: "Directed topological edge connecting two Grid Nodes in the physical electric network"
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/types/connectivity.edge.gt/000"
+        created: "2026-02-23T00:00:00Z"
+        status: "published"
+        summary: "Initial Sema version"
+        direct_dependencies:
+          structural:
+            - "g.node.status:000"
+            - "uuid4.str"
+
   data.channel.gt:
     latest_version: "002"
     owner: gridworks-energy
@@ -456,6 +497,61 @@ types:
           structural:
             - "fsm.atomic.report:000"
             - "spaceheat.name"
+            - "uuid4.str"
+
+  g.node.forest:
+    latest_version: "002"
+    owner: gridworks-energy
+    versioning_strategy: "literal"
+    description: "A forest of Grid Node subtrees: the subtrees under one or more root aliases, carried as their current GNodes plus the connectivity edges wiring them together."
+
+    versions:
+      "002":
+        schema_url: "https://schemas.electricity.works/types/g.node.forest/002"
+        created: "2026-08-06T13:25:00Z"
+        status: "published"
+        summary: "- Nodes rebind to g.node.gt:006; SendTimeMs joins required"
+        direct_dependencies:
+          structural:
+            - "connectivity.edge.gt:000"
+            - "g.node.gt:006"
+            - "left.right.dot"
+            - "utc.milliseconds"
+
+  g.node.forest.request:
+    latest_version: "000"
+    owner: gridworks-energy
+    versioning_strategy: "literal"
+    description: "A read query for one or more Grid Node forests: the caller names root aliases and correlates the response by RequestId."
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/types/g.node.forest.request/000"
+        created: "2026-07-03T18:55:00Z"
+        status: "published"
+        summary: "Initial Sema version"
+        direct_dependencies:
+          structural:
+            - "left.right.dot"
+            - "uuid4.str"
+
+  g.node.gt:
+    latest_version: "006"
+    owner: gridworks-energy
+    versioning_strategy: "literal"
+    description: "Fundamental identity object representing physical and logical grid nodes"
+
+    versions:
+      "006":
+        schema_url: "https://schemas.electricity.works/types/g.node.gt/006"
+        created: "2026-08-06T13:25:00Z"
+        status: "published"
+        summary: "- Axiom 2 (PhysicalGNodeLocations) becomes activation-conditioned: PositionPointId is mandatory only when Status is Active — a Pending physical GNode may be locationless"
+        direct_dependencies:
+          structural:
+            - "base.g.node.class:000"
+            - "g.node.status:000"
+            - "left.right.dot"
             - "uuid4.str"
 
   gw.house.alert:

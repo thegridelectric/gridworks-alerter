@@ -14,10 +14,13 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
+    "alembic>=1.17.2",
     "gridworks-base>=0.5.12",
+    "httpx>=0.27",
     "pydantic>=2.8.2",
     "pydantic-settings>=2.3.4",
     "python-dotenv>=1.0.0",
+    "sqlalchemy>=2.0.44",
 ]
 
 [project.scripts]
@@ -73,3 +76,7 @@ preview = true
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
 preview = true
+
+[tool.ruff.lint.per-file-ignores]
+# alembic's env.py configures sys.path before its project imports.
+"src/gwalerter/migrations/env.py" = ["E402"]

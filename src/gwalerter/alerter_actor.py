@@ -3,7 +3,9 @@
 Consumes the audit exchange the way JournalKeeper does (bind everything,
 keep the tracked types off the parsed envelope), unwraps each `gw` body,
 decodes it through the vendored snapshot, and hands the typed instance
-to the store. No detector runs here yet.
+to the store: readings and layouts from the scadas, the registry's forest
+broadcasts into the projection. A scada heard from that reports for no
+tracked house is logged once per boot. No detector runs here yet.
 """
 
 from __future__ import annotations
@@ -18,12 +20,13 @@ from gwbase.wrapped import unwrap_bytes
 from gwalerter.config import AlerterSettings
 from gwalerter.sema.codec import SemaCodec, default_codec
 from gwalerter.sema.property_format import UTCMilliseconds
-from gwalerter.sema.types import LayoutLite, ReportEvent
+from gwalerter.sema.types import GNodeForest, LayoutLite, ReportEvent
 from gwalerter.store import Store
 
 TRACKED_TYPES: frozenset[str] = frozenset({
     ReportEvent.type_name_value(),
     LayoutLite.type_name_value(),
+    GNodeForest.type_name_value(),
 })
 
 
@@ -44,6 +47,7 @@ class AlerterActor(ActorBase):
         self.store = store
         self.codec = codec
         self.clock_ms = clock_ms
+        self.untracked_seen: set[str] = set()
 
     def local_rabbit_startup(self) -> None:
         """Bind everything (`#`); the tracked-type gate is in dispatch, off
@@ -76,11 +80,28 @@ class AlerterActor(ActorBase):
             return
         if isinstance(message, ReportEvent):
             self.store.record_report(message, received_ms=received_ms)
+            self.note_untracked(message.src)
         elif isinstance(message, LayoutLite):
             self.store.record_layout(message, received_ms=received_ms)
+            self.note_untracked(message.from_g_node_alias)
+        elif isinstance(message, GNodeForest):
+            self.store.upsert_forest(message)
         else:
             self.logger.warning(
                 "Tracked type %s decoded as %s; not stored",
                 envelope.type_name,
                 type(message).__name__,
+            )
+
+    def note_untracked(self, scada_alias: str) -> None:
+        """A scada sending data with no tracked house behind it: a forgotten
+        install, or a house outside the fleet roots. Say so once."""
+        if scada_alias in self.untracked_seen:
+            return
+        if self.store.tracked_house_of(scada_alias) is None:
+            self.untracked_seen.add(scada_alias)
+            self.logger.warning(
+                "Heard %s, which reports for no tracked house under %s",
+                scada_alias,
+                self.store.fleet_roots,
             )

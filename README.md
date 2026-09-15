@@ -12,11 +12,25 @@ JournalKeeper does and keeps the message types it tracks:
 - `report.event` — each scada's periodic readings.
 - `layout.lite` — the scada's hardware layout, sent on boot; the source
   of every channel's unit and role.
+- `g.node.forest` — the registry's topology broadcasts, projected to a
+  local `g_nodes` table by immutable id. At boot the alerter also asks
+  the registry's HTTP read (`GWALERTER_GNR_URL`) for the forest under
+  its fleet roots.
 
-**State lives in sqlite**, in the service's XDG data dir: the latest
-layout per house, a rolling window of readings, and when each house was
-last heard from. Across a restart the layouts survive; the readings
-window refills from live traffic.
+**Which houses it pages for is a registry subtree.** `GWALERTER_FLEET_ROOTS`
+(comma-separated root aliases, no default) names the fleet; every Active
+TerminalAsset under those roots is tracked and nothing else is. A house
+that must not page lives outside the roots. A scada heard from that
+reports for no tracked house is logged once per boot.
+
+**State lives in sqlite**, in the service's XDG data dir, behind
+SQLAlchemy with the schema applied by the alembic chain under
+`src/gwalerter/migrations/` when the store opens (never `create_all`):
+the registry projection, the latest layout per scada, a rolling window of
+readings, and alert state. Across a restart the projection, layouts and
+alert state survive; the readings window refills from live traffic. To
+change the schema: edit `db_models.py`, then
+`uv run alembic revision --autogenerate -m "..."` and review the file.
 
 Message types are governed by **Sema** — the versioned vocabulary of
 JSON-Schema contracts for all GridWorks message boundaries, canonical at

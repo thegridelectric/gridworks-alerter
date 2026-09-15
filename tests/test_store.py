@@ -41,20 +41,21 @@ def test_readings_older_than_the_window_leave(store: Store) -> None:
     first = event.report.channel_reading_list[0]
     newest = max(first.scada_read_time_unix_ms_list)
     store.record_report(event, received_ms=newest)
-    assert store.readings_since(event.src, first.channel_name, 0)
+    n = len(store.readings_since(event.src, first.channel_name, 0))
+    assert n == len(first.value_list)
     store.record_report(event, received_ms=newest + store.readings_window_s * 1000 + 1)
-    # the second append is itself older than the window, so nothing remains
-    assert store.readings_since(event.src, first.channel_name, 0) == []
+    # the first arrival is now older than the window; only the second stays
+    assert len(store.readings_since(event.src, first.channel_name, 0)) == n
 
 
 def test_layout_round_trips_and_survives_reopen(tmp_path: Path) -> None:
-    path = tmp_path / "alerter.sqlite"
-    store = Store.open(path, readings_window_s=60)
+    url = f"sqlite:///{tmp_path / 'alerter.sqlite'}"
+    store = Store.open(url, readings_window_s=60, fleet_roots=[])
     layout = layout_lite()
     store.record_layout(layout, received_ms=1_800_000_000_000)
     store.close()
 
-    reopened = Store.open(path, readings_window_s=60)
+    reopened = Store.open(url, readings_window_s=60, fleet_roots=[])
     (house,) = reopened.houses()
     assert house.alias == layout.from_g_node_alias
     assert house.layout_received_ms == 1_800_000_000_000
@@ -69,3 +70,15 @@ def test_last_heard_never_moves_backwards(store: Store) -> None:
     store.record_report(event, received_ms=1_800_000_001_000)
     (house,) = store.houses()
     assert house.last_heard_ms == 1_800_000_002_000
+
+
+def test_schema_comes_from_the_migration_chain(store: Store) -> None:
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import text
+
+    from gwalerter.store import MIGRATIONS_DIR
+
+    head = ScriptDirectory(str(MIGRATIONS_DIR)).get_current_head()
+    with store.engine.connect() as conn:
+        (current,) = conn.execute(text("SELECT version_num FROM alembic_version")).one()
+    assert current == head

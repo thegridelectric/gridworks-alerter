@@ -19,6 +19,11 @@ types:
     versioning_strategy: literal
     versions:
       '002': definitions/types/channel.readings/002.yaml
+  connectivity.edge.gt:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/connectivity.edge.gt/000.yaml
   data.channel.gt:
     latest_version: '002'
     versioning_strategy: literal
@@ -43,6 +48,21 @@ types:
     versions:
       '001': definitions/types/fsm.full.report/001.yaml
       '000': definitions/types/fsm.full.report/000.yaml
+  g.node.forest:
+    latest_version: '002'
+    versioning_strategy: literal
+    versions:
+      '002': definitions/types/g.node.forest/002.yaml
+  g.node.forest.request:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/g.node.forest.request/000.yaml
+  g.node.gt:
+    latest_version: '006'
+    versioning_strategy: literal
+    versions:
+      '006': definitions/types/g.node.gt/006.yaml
   gw.house.alert:
     latest_version: '000'
     versioning_strategy: literal
@@ -134,12 +154,22 @@ types:
     versions:
       '000': definitions/types/spaceheat.telemetry.quantity.projection/000.yaml
 enums:
+  base.g.node.class:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/base.g.node.class/000.yaml
   change.relay.state:
     enum_type: literal
     schema: definitions/enums/change.relay.state/000.yaml
   fsm.report.type:
     enum_type: literal
     schema: definitions/enums/fsm.report.type/000.yaml
+  g.node.status:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/g.node.status/000.yaml
   gpm.from.hz.method:
     enum_type: versioned
     latest_version: '000'

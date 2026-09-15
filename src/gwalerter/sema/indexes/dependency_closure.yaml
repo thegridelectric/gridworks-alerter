@@ -19,6 +19,14 @@ types:
       - utc.milliseconds
       types: []
       versionless_types: []
+  connectivity.edge.gt:
+    '000':
+      enums:
+      - g.node.status:000
+      formats:
+      - uuid4.str
+      types: []
+      versionless_types: []
   data.channel.gt:
     '001':
       enums:
@@ -110,6 +118,37 @@ types:
       - uuid4.str
       types:
       - fsm.atomic.report:001
+      versionless_types: []
+  g.node.forest:
+    '002':
+      enums:
+      - base.g.node.class:000
+      - g.node.status:000
+      formats:
+      - left.right.dot
+      - utc.milliseconds
+      - uuid4.str
+      types:
+      - connectivity.edge.gt:000
+      - g.node.gt:006
+      versionless_types: []
+  g.node.forest.request:
+    '000':
+      enums: []
+      formats:
+      - left.right.dot
+      - uuid4.str
+      types: []
+      versionless_types: []
+  g.node.gt:
+    '006':
+      enums:
+      - base.g.node.class:000
+      - g.node.status:000
+      formats:
+      - left.right.dot
+      - uuid4.str
+      types: []
       versionless_types: []
   gw.house.alert:
     '000':

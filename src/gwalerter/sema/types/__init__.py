@@ -1,9 +1,13 @@
 from gwalerter.sema.types.channel_config import ChannelConfig
 from gwalerter.sema.types.channel_readings import ChannelReadings
+from gwalerter.sema.types.connectivity_edge_gt import ConnectivityEdgeGt
 from gwalerter.sema.types.data_channel_gt import DataChannelGt
 from gwalerter.sema.types.derived_channel_gt import DerivedChannelGt
 from gwalerter.sema.types.fsm_atomic_report import FsmAtomicReport
 from gwalerter.sema.types.fsm_full_report import FsmFullReport
+from gwalerter.sema.types.g_node_forest import GNodeForest
+from gwalerter.sema.types.g_node_forest_request import GNodeForestRequest
+from gwalerter.sema.types.g_node_gt import GNodeGt
 from gwalerter.sema.types.ha1_params import Ha1Params
 from gwalerter.sema.types.house_alert import HouseAlert
 from gwalerter.sema.types.house_alert_cleared import HouseAlertCleared
@@ -30,10 +34,14 @@ from gwalerter.sema.types.tank_temp_calibration_map import TankTempCalibrationMa
 __all__ = [
     "ChannelConfig",
     "ChannelReadings",
+    "ConnectivityEdgeGt",
     "DataChannelGt",
     "DerivedChannelGt",
     "FsmAtomicReport",
     "FsmFullReport",
+    "GNodeForest",
+    "GNodeForestRequest",
+    "GNodeGt",
     "Ha1Params",
     "HouseAlert",
     "HouseAlertCleared",

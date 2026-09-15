@@ -16,8 +16,10 @@ from gwalerter.store import Store
 from tests.conftest import sample
 
 
-def wrapped(type_name: str, payload: dict) -> tuple[WrappedRoutingEnvelope, bytes]:
-    src = payload.get("Src") or payload["FromGNodeAlias"]
+def wrapped(
+    type_name: str, payload: dict, src: str | None = None
+) -> tuple[WrappedRoutingEnvelope, bytes]:
+    src = src or payload.get("Src") or payload["FromGNodeAlias"]
     envelope = WrappedRoutingEnvelope.from_classes(
         type_name=type_name, from_alias=src, to_class=TransportClass.LeafTransactiveNode
     )
@@ -78,3 +80,29 @@ def test_bad_body_is_dropped(settings: AlerterSettings, store: Store) -> None:
     envelope, _body = wrapped("report.event", sample("report.event.004.json"))
     actor(settings, store).dispatch_message(envelope=envelope, body=b"not json")
     assert store.houses() == []
+
+
+def test_forest_broadcast_reaches_the_projection(
+    settings: AlerterSettings, store: Store
+) -> None:
+    from tests.conftest import FLEET_ROOT, forest, house_nodes
+
+    payload = forest(
+        house_nodes(f"{FLEET_ROOT}.spruce"), [FLEET_ROOT], 1_800_000_000_000
+    )
+    envelope, body = wrapped("g.node.forest", payload, src="d1.gnr")
+    actor(settings, store).dispatch_message(envelope=envelope, body=body)
+    assert [h.alias for h in store.tracked_houses()] == [f"{FLEET_ROOT}.spruce.ta"]
+
+
+def test_untracked_scada_is_logged_once(
+    settings: AlerterSettings, store: Store, caplog
+) -> None:
+    envelope, body = wrapped("report.event", sample("report.event.004.json"))
+    a = actor(settings, store)
+    a.logger.addHandler(caplog.handler)  # the actor logger does not propagate
+    with caplog.at_level("WARNING"):
+        a.dispatch_message(envelope=envelope, body=body)
+        a.dispatch_message(envelope=envelope, body=body)
+    hits = [r for r in caplog.records if "no tracked house" in r.getMessage()]
+    assert len(hits) == 1 and envelope.from_alias in hits[0].getMessage()

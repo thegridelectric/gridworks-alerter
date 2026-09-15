@@ -16,6 +16,10 @@ types:
       - report:001
       - report:002
       - report:003
+  connectivity.edge.gt:
+    '000':
+      used_by:
+      - g.node.forest:002
   data.channel.gt:
     '001':
       used_by:
@@ -48,6 +52,10 @@ types:
       used_by:
       - report:002
       - report:003
+  g.node.gt:
+    '006':
+      used_by:
+      - g.node.forest:002
   gw1.tank.temp.calibration:
     '000':
       used_by:
@@ -124,6 +132,10 @@ types:
       used_by:
       - data.channel.gt:002
 enums:
+  base.g.node.class:
+    '000':
+      used_by:
+      - g.node.gt:006
   change.relay.state:
     '000':
       used_by:
@@ -133,6 +145,11 @@ enums:
       used_by:
       - fsm.atomic.report:000
       - fsm.atomic.report:001
+  g.node.status:
+    '000':
+      used_by:
+      - connectivity.edge.gt:000
+      - g.node.gt:006
   gpm.from.hz.method:
     '000':
       used_by:
@@ -228,6 +245,9 @@ formats:
     - derived.channel.gt:001
     - fsm.atomic.report:000
     - fsm.atomic.report:001
+    - g.node.forest.request:000
+    - g.node.forest:002
+    - g.node.gt:006
     - gw.house.alert.cleared:000
     - gw.house.alert:000
     - layout.lite:011
@@ -281,6 +301,7 @@ formats:
     - channel.readings:002
     - fsm.atomic.report:000
     - fsm.atomic.report:001
+    - g.node.forest:002
     - gw.house.alert.cleared:000
     - gw.house.alert:000
     - layout.lite:011
@@ -302,6 +323,7 @@ formats:
     - report:003
   uuid4.str:
     used_by:
+    - connectivity.edge.gt:000
     - data.channel.gt:001
     - data.channel.gt:002
     - derived.channel.gt:000
@@ -310,6 +332,8 @@ formats:
     - fsm.atomic.report:001
     - fsm.full.report:000
     - fsm.full.report:001
+    - g.node.forest.request:000
+    - g.node.gt:006
     - gw.house.alert.cleared:000
     - gw.house.alert:000
     - i2c.multichannel.dt.relay.component.gt:002

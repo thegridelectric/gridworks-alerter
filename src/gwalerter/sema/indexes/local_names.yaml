@@ -1,6 +1,8 @@
 enums:
+  base.g.node.class: base.g.node.class
   change.relay.state: change.relay.state
   fsm.report.type: fsm.report.type
+  g.node.status: g.node.status
   gpm.from.hz.method: gpm.from.hz.method
   gw.house.alert.kind: house.alert.kind
   gw1.actor.class: actor.class
@@ -20,10 +22,14 @@ enums:
 types:
   channel.config: channel.config
   channel.readings: channel.readings
+  connectivity.edge.gt: connectivity.edge.gt
   data.channel.gt: data.channel.gt
   derived.channel.gt: derived.channel.gt
   fsm.atomic.report: fsm.atomic.report
   fsm.full.report: fsm.full.report
+  g.node.forest: g.node.forest
+  g.node.forest.request: g.node.forest.request
+  g.node.gt: g.node.gt
   gw.house.alert: house.alert
   gw.house.alert.cleared: house.alert.cleared
   gw1.tank.temp.calibration: tank.temp.calibration
