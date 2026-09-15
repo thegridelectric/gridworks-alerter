@@ -2,6 +2,7 @@ enums:
   change.relay.state: change.relay.state
   fsm.report.type: fsm.report.type
   gpm.from.hz.method: gpm.from.hz.method
+  gw.house.alert.kind: house.alert.kind
   gw1.actor.class: actor.class
   gw1.emission.method: emission.method
   gw1.quantity: quantity
@@ -23,6 +24,8 @@ types:
   derived.channel.gt: derived.channel.gt
   fsm.atomic.report: fsm.atomic.report
   fsm.full.report: fsm.full.report
+  gw.house.alert: house.alert
+  gw.house.alert.cleared: house.alert.cleared
   gw1.tank.temp.calibration: tank.temp.calibration
   gw1.tank.temp.calibration.map: tank.temp.calibration.map
   ha1.params: ha1.params

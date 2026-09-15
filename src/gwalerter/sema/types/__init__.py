@@ -5,6 +5,8 @@ from gwalerter.sema.types.derived_channel_gt import DerivedChannelGt
 from gwalerter.sema.types.fsm_atomic_report import FsmAtomicReport
 from gwalerter.sema.types.fsm_full_report import FsmFullReport
 from gwalerter.sema.types.ha1_params import Ha1Params
+from gwalerter.sema.types.house_alert import HouseAlert
+from gwalerter.sema.types.house_alert_cleared import HouseAlertCleared
 from gwalerter.sema.types.i2c_multichannel_dt_relay_component_gt import (
     I2cMultichannelDtRelayComponentGt,
 )
@@ -33,6 +35,8 @@ __all__ = [
     "FsmAtomicReport",
     "FsmFullReport",
     "Ha1Params",
+    "HouseAlert",
+    "HouseAlertCleared",
     "I2cMultichannelDtRelayComponentGt",
     "LayoutLite",
     "MachineStates",

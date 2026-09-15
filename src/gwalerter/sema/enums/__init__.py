@@ -3,6 +3,7 @@ from gwalerter.sema.enums.change_relay_state import ChangeRelayState
 from gwalerter.sema.enums.emission_method import EmissionMethod
 from gwalerter.sema.enums.fsm_report_type import FsmReportType
 from gwalerter.sema.enums.gpm_from_hz_method import GpmFromHzMethod
+from gwalerter.sema.enums.house_alert_kind import HouseAlertKind
 from gwalerter.sema.enums.hz_calc_method import HzCalcMethod
 from gwalerter.sema.enums.quantity import Quantity
 from gwalerter.sema.enums.relay_closed_or_open import RelayClosedOrOpen
@@ -22,6 +23,7 @@ __all__ = [
     "EmissionMethod",
     "FsmReportType",
     "GpmFromHzMethod",
+    "HouseAlertKind",
     "HzCalcMethod",
     "Quantity",
     "RelayClosedOrOpen",

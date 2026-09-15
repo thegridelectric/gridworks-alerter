@@ -33,7 +33,9 @@ echo "==> seed:      ${SEED}"
 echo "==> package:   ${PACKAGE_NAME}"
 
 cd "${SEMA_REPO}"
-uv run sema snapshot prepare "${SEED}"
+# --allow-staged: the house alert words are staging during the dev-broker
+# phase; drop the flag when they are promoted before the shadow run.
+uv run sema snapshot prepare --allow-staged "${SEED}"
 uv run sema snapshot build --package-name "${PACKAGE_NAME}"
 
 echo "==> mirror ${SEMA_REPO}/output/sema -> ${VENDOR_DIR}"

@@ -8,8 +8,10 @@
 #
 # The alerter decodes what the fleet's scadas send: every report.event
 # version on the wire, and the published layout.lite versions the current
-# scada releases send. Published set only: the alerter is a prod service,
-# so its snapshot is publication-grade; widen when scada promotes.
+# scada releases send. It emits the house alert words. Publication-grade
+# once it runs against hw1: the alerter is a prod service. During the
+# dev-broker phase the alert words are staging; they are promoted before
+# the shadow run and the seed narrows back to the published set then.
 
 initial_targets:
   types:
@@ -17,6 +19,10 @@ initial_targets:
       include_all_versions: true
     layout.lite:
       versions: ["011", "012"]
+    gw.house.alert:
+      versions: ["000"]
+    gw.house.alert.cleared:
+      versions: ["000"]
 
 local_names:
   strip_prefixes: [gw1, gw]

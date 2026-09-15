@@ -1,6 +1,6 @@
 metadata:
   generated_from: indexes/public_registry.yaml
-  generated_at: '2026-09-15T18:02:20Z'
+  generated_at: '2026-09-15T19:41:45Z'
   note: Transitive closure of initial_targets
 initial_targets:
 - report.event:000
@@ -9,6 +9,8 @@ initial_targets:
 - report.event:004
 - layout.lite:011
 - layout.lite:012
+- gw.house.alert:000
+- gw.house.alert.cleared:000
 worklist:
   formats:
     handle.name:
@@ -39,6 +41,9 @@ worklist:
     gpm.from.hz.method:
       '000':
         path: definitions/enums/gpm.from.hz.method/000.yaml
+    gw.house.alert.kind:
+      '000':
+        path: definitions/enums/gw.house.alert.kind/000.yaml
     gw1.actor.class:
       009:
         path: definitions/enums/gw1.actor.class/009.yaml
@@ -112,6 +117,12 @@ worklist:
         path: definitions/types/fsm.full.report/000.yaml
       '001':
         path: definitions/types/fsm.full.report/001.yaml
+    gw.house.alert:
+      '000':
+        path: definitions/types/gw.house.alert/000.yaml
+    gw.house.alert.cleared:
+      '000':
+        path: definitions/types/gw.house.alert.cleared/000.yaml
     gw1.tank.temp.calibration:
       '000':
         path: definitions/types/gw1.tank.temp.calibration/000.yaml
