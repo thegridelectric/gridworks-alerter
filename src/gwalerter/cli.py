@@ -1,7 +1,7 @@
-"""gwalerter console entry point — `gwalerter rabbit`.
-
-The systemd unit invokes the actor (`alerter-rabbit.service` →
-`gwalerter rabbit`).
+"""gwalerter console entry point: `gwalerter rabbit` runs the alerter
+actor, `gwalerter tap` the Opsgenie tap, `gwalerter probe` the broker
+prober. Each is its own systemd unit (`alerter-rabbit.service`,
+`alerter-tap.service`, `alerter-probe.service`).
 """
 
 from __future__ import annotations
@@ -15,8 +15,10 @@ import dotenv
 
 from gwalerter.alerter_actor import AlerterActor
 from gwalerter.config import AlerterSettings
+from gwalerter.prober import Prober, doors
 from gwalerter.registry_read import fetch_forest
 from gwalerter.store import Store
+from gwalerter.tap import Tap
 
 logger = logging.getLogger(__name__)
 
@@ -62,11 +64,53 @@ def run_rabbit() -> None:
         actor.stop()
 
 
+def run_tap() -> None:
+    settings = AlerterSettings.load()
+    logging.basicConfig(
+        level=settings.log_level.upper(),
+        stream=sys.stdout,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    # The alerter's own store, opened beside it: the open alerts to
+    # reconcile Opsgenie against, and the registry projection for each
+    # house's display name.
+    store = Store.open(
+        settings.db_url(),
+        readings_window_s=settings.readings_window_s,
+        fleet_roots=settings.fleet_roots,
+    )
+    Tap(settings=settings, store=store).run()
+
+
+def run_probe() -> None:
+    settings = AlerterSettings.load()
+    logging.basicConfig(
+        level=settings.log_level.upper(),
+        stream=sys.stdout,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    # The alerter's own store, opened beside it: BrokerUnreachable is
+    # raised and resolved there, where the tap pages it and the NoData
+    # rule reads it.
+    store = Store.open(
+        settings.db_url(),
+        readings_window_s=settings.readings_window_s,
+        fleet_roots=settings.fleet_roots,
+    )
+    Prober(settings=settings, store=store, doors=doors(settings)).run()
+
+
 def main(argv: list[str] | None = None) -> None:
     dotenv.load_dotenv(dotenv.find_dotenv())  # populate env BEFORE Settings()
     parser = argparse.ArgumentParser(prog="gwalerter")
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("rabbit", help="run the alerter actor")
+    subcommands.add_parser("tap", help="page the store's open alerts through Opsgenie")
+    subcommands.add_parser("probe", help="check the broker's doors from outside")
     args = parser.parse_args(argv)
     if args.command == "rabbit":
         run_rabbit()
+    elif args.command == "tap":
+        run_tap()
+    elif args.command == "probe":
+        run_probe()

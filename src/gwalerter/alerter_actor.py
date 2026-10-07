@@ -9,11 +9,16 @@ to the store: readings and layouts from the scadas, the registry's forest
 broadcasts into the projection. A scada heard from that reports for no
 tracked house is logged once per boot.
 
-The detectors run on their own thread at `detector_tick_s`, once the
-actor is consuming (a word raised while the channel is down would be
-recorded and never sent). Each transition a rule records is broadcast on
-the mic exchange with the house alias as the radio channel, so a manager
-can bind by house. Arrivals clear on the consumer thread, in dispatch.
+The detectors run on their own thread at `detector_tick_s`, only while
+the actor is consuming: while it is deaf every house looks silent for
+the actor's own reason, and there is nothing to detect. Each time
+consuming starts (boot and every reconnect) the NoData rule's last-heard
+floor moves to that moment, so a house gets one silence threshold to be
+heard before it pages. Each `gw.alert` record a rule makes is recorded
+in the store, where the tap pages it, and broadcast on the mic exchange
+with the alias it is about as the radio channel: the house for a House
+alert, so a manager can bind by house, else the alerter's own alias.
+Arrivals resolve on the consumer thread, in dispatch.
 """
 
 from __future__ import annotations
@@ -34,10 +39,9 @@ from gwalerter.no_data import NoDataRule
 from gwalerter.sema.codec import SemaCodec, default_codec
 from gwalerter.sema.property_format import UTCMilliseconds
 from gwalerter.sema.types import (
+    Alert,
     ChannelReadings,
     GNodeForest,
-    HouseAlert,
-    HouseAlertCleared,
     LayoutLite,
     ReportEvent,
 )
@@ -98,6 +102,12 @@ class AlerterActor(Orchestrator):
             "Binding queue %s to %s with routing key #", self.queue_name, EAR_EXCHANGE
         )
         self._live_channel().queue_bind(self.queue_name, EAR_EXCHANGE, routing_key="#")
+        self.hearing_resumed()
+
+    def hearing_resumed(self) -> None:
+        """Consuming has started: the silence until now was the actor's own
+        deafness, not a house's, so last-heard is floored at this moment."""
+        self.no_data.heard_floor_ms = self.clock_ms()
 
     def local_stop(self) -> None:
         super().local_stop()
@@ -121,20 +131,23 @@ class AlerterActor(Orchestrator):
         for alert in self.no_data.evaluate(self.clock_ms()):
             self.emit(alert)
 
-    def emit(self, word: HouseAlert | HouseAlertCleared) -> None:
-        """Broadcast an alert transition on the mic exchange, keyed by the
-        house it is about. Best-effort by gwbase contract; the store already
-        holds the transition, so a failed send is logged, not retried."""
+    def emit(self, word: Alert) -> None:
+        """Broadcast an alert record on the mic exchange, keyed by the alias
+        it is about (`AboutGNodeAlias`, else `Src`). Best-effort by gwbase
+        contract; the store already holds the record, so a failed send is
+        logged, not retried."""
+        about = word.about_g_node_alias or word.src
         self.logger.info(
-            "%s %s on %s (%s)",
+            "%s %s %s on %s (%s)",
             word.type_name,
+            word.state.value,
             word.kind.value,
-            word.about_g_node_alias,
+            about,
             word.alert_id,
         )
         diagnostic = self.send(
             envelope=self.broadcast_envelope(
-                type_name=word.type_name, radio_channel=word.about_g_node_alias
+                type_name=word.type_name, radio_channel=about
             ),
             body=json.dumps(word.to_dict()).encode(),
         )
@@ -185,11 +198,11 @@ class AlerterActor(Orchestrator):
         arrival_ms: UTCMilliseconds,
         evidence: list[ChannelReadings],
     ) -> None:
-        cleared = self.no_data.on_arrival(
+        resolved = self.no_data.on_arrival(
             scada_alias, arrival_ms=arrival_ms, evidence=evidence
         )
-        if cleared is not None:
-            self.emit(cleared)
+        if resolved is not None:
+            self.emit(resolved)
 
     def note_untracked(self, scada_alias: str) -> None:
         """A scada sending data with no tracked house behind it: a forgotten

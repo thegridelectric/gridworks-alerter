@@ -14,6 +14,13 @@
 # Usage:
 #   scripts/regen_sema_snapshot.sh                 # sibling ../sema checkout
 #   SEMA_REPO=/path/to/sema scripts/regen_sema_snapshot.sh
+#   scripts/regen_sema_snapshot.sh --allow-staged  # dev-only snapshot
+#
+# Arguments pass through to `sema snapshot prepare`. Regenerate from a
+# clean worktree at the sema ref you intend to ship from (a sibling
+# checkout is usually on some other branch):
+#   git -C ../sema worktree add /tmp/sema-dev origin/dev
+#   SEMA_REPO=/tmp/sema-dev scripts/regen_sema_snapshot.sh
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -33,7 +40,7 @@ echo "==> seed:      ${SEED}"
 echo "==> package:   ${PACKAGE_NAME}"
 
 cd "${SEMA_REPO}"
-uv run sema snapshot prepare "${SEED}"
+uv run sema snapshot prepare "${SEED}" "$@"
 uv run sema snapshot build --package-name "${PACKAGE_NAME}"
 
 echo "==> mirror ${SEMA_REPO}/output/sema -> ${VENDOR_DIR}"

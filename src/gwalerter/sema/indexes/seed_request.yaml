@@ -9,8 +9,11 @@
 # The alerter decodes what the fleet's scadas send: every report.event
 # version on the wire, and the published layout.lite versions the current
 # scada releases send, projects the registry's forest broadcasts and
-# requests one at boot, and emits the house alert words. Published words
-# only: the alerter is a prod service.
+# requests one at boot, emits gw.alert, and pages through Opsgenie with
+# the gw.opsgenie words: the tap's create and close requests and the
+# alert as Opsgenie lists it back. A box runs a published-only
+# snapshot (the regen's default); a dev round may build with
+# --allow-staged, and that snapshot is marked dev-only and never ships.
 
 initial_targets:
   types:
@@ -18,9 +21,13 @@ initial_targets:
       include_all_versions: true
     layout.lite:
       versions: ["011", "012"]
-    gw.house.alert:
+    gw.alert:
       versions: ["000"]
-    gw.house.alert.cleared:
+    gw.opsgenie.alert.create:
+      versions: ["000"]
+    gw.opsgenie.alert.close:
+      versions: ["000"]
+    gw.opsgenie.alert:
       versions: ["000"]
     g.node.forest:
       versions: ["002"]

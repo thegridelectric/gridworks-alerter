@@ -8,6 +8,12 @@ not yet heard from since it booted is silent from boot, not from the
 beginning of time, so a fresh alerter gives every house one threshold to
 speak before paging. Open-alert state lives in the store, which is what
 makes a restart neither re-raise nor forget.
+
+While a `BrokerUnreachable` alert is open in the store (the prober's
+finding), every house is silent for the same reason and that one alert
+says so: the rule raises no NoData. When the last one resolves, the floor
+moves to that moment, so each house gets one threshold to reconnect
+before it pages.
 """
 
 from __future__ import annotations
@@ -15,9 +21,14 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from gwalerter.sema.enums import HouseAlertKind
+from gwalerter.sema.enums import (
+    AlertCategory,
+    AlertState,
+    HouseAlertKind,
+    PlatformAlertKind,
+)
 from gwalerter.sema.property_format import LeftRightDot, UTCMilliseconds
-from gwalerter.sema.types import ChannelReadings, HouseAlert, HouseAlertCleared
+from gwalerter.sema.types import Alert, ChannelReadings
 from gwalerter.store import Store
 
 
@@ -38,27 +49,37 @@ class NoDataRule:
         self.src = src
         self.silence_ms = silence_ms
         self.heard_floor_ms = heard_floor_ms
+        self.broker_down = False
 
-    def evaluate(self, now_ms: UTCMilliseconds) -> list[HouseAlert]:
+    def evaluate(self, now_ms: UTCMilliseconds) -> list[Alert]:
         """Raise NoData on every tracked house silent past the threshold
-        that has no NoData alert open; each raised word is recorded in
-        the store before it is returned."""
+        that has no NoData alert open; each `Firing` record is recorded in
+        the store before it is returned. Nothing is raised while the broker
+        is down, and the floor moves to the moment it comes back."""
+        broker_down = self.broker_unreachable()
+        if self.broker_down and not broker_down:
+            self.heard_floor_ms = now_ms
+        self.broker_down = broker_down
+        if broker_down:
+            return []
         heard: dict[str, UTCMilliseconds] = {}
         for record in self.store.houses():
             house = self.store.tracked_house_of(record.alias)
             if house is not None and record.last_heard_ms is not None:
                 heard[house.alias] = record.last_heard_ms
-        raised: list[HouseAlert] = []
+        raised: list[Alert] = []
         for house in self.store.tracked_houses():
             last = max(heard.get(house.alias, 0), self.heard_floor_ms)
             if now_ms - last < self.silence_ms:
                 continue
-            if self.store.open_alert(house.alias, HouseAlertKind.NoData) is not None:
+            if self.open_no_data(house.alias) is not None:
                 continue
-            alert = HouseAlert(
+            alert = Alert(
                 src=self.src,
-                about_g_node_alias=house.alias,
+                category=AlertCategory.House,
                 kind=HouseAlertKind.NoData,
+                state=AlertState.Firing,
+                about_g_node_alias=house.alias,
                 alert_id=str(uuid.uuid4()),
                 raised_ms=now_ms,
                 summary=f"No data from {house.alias} since {iso_utc(last)}",
@@ -74,23 +95,42 @@ class NoDataRule:
         *,
         arrival_ms: UTCMilliseconds,
         evidence: list[ChannelReadings],
-    ) -> HouseAlertCleared | None:
+    ) -> Alert | None:
         """A message from a scada: if its tracked house has a NoData alert
-        open, clear it with this arrival as the evidence (the report's
+        open, resolve it with this arrival as the evidence (the report's
         readings; empty for a layout)."""
         house = self.store.tracked_house_of(scada_alias)
         if house is None:
             return None
-        open_alert = self.store.open_alert(house.alias, HouseAlertKind.NoData)
+        open_alert = self.open_no_data(house.alias)
         if open_alert is None:
             return None
-        cleared = HouseAlertCleared(
-            alert_id=open_alert.alert_id,
+        resolved = Alert(
             src=self.src,
-            about_g_node_alias=house.alias,
+            category=AlertCategory.House,
             kind=HouseAlertKind.NoData,
-            cleared_ms=arrival_ms,
+            state=AlertState.Resolved,
+            about_g_node_alias=house.alias,
+            alert_id=open_alert.alert_id,
+            raised_ms=open_alert.raised_ms,
+            resolved_ms=arrival_ms,
+            summary=f"Data from {house.alias} again at {iso_utc(arrival_ms)}",
             evidence=evidence,
         )
-        self.store.clear_alert(cleared)
-        return cleared
+        self.store.clear_alert(resolved)
+        return resolved
+
+    def open_no_data(self, house_alias: LeftRightDot) -> Alert | None:
+        return self.store.open_alert(
+            AlertCategory.House,
+            HouseAlertKind.NoData,
+            about_g_node_alias=house_alias,
+        )
+
+    def broker_unreachable(self) -> bool:
+        """Whether the prober holds a BrokerUnreachable alert open on any
+        door."""
+        return any(
+            alert.kind is PlatformAlertKind.BrokerUnreachable
+            for alert in self.store.open_alerts()
+        )

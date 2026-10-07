@@ -4,7 +4,13 @@ enums:
   fsm.report.type: fsm.report.type
   g.node.status: g.node.status
   gpm.from.hz.method: gpm.from.hz.method
+  gw.alert.category: alert.category
+  gw.alert.state: alert.state
+  gw.fleet.alert.kind: fleet.alert.kind
   gw.house.alert.kind: house.alert.kind
+  gw.opsgenie.alert.status: opsgenie.alert.status
+  gw.opsgenie.priority: opsgenie.priority
+  gw.platform.alert.kind: platform.alert.kind
   gw1.actor.class: actor.class
   gw1.emission.method: emission.method
   gw1.quantity: quantity
@@ -30,8 +36,10 @@ types:
   g.node.forest: g.node.forest
   g.node.forest.request: g.node.forest.request
   g.node.gt: g.node.gt
-  gw.house.alert: house.alert
-  gw.house.alert.cleared: house.alert.cleared
+  gw.alert: alert
+  gw.opsgenie.alert: opsgenie.alert
+  gw.opsgenie.alert.close: opsgenie.alert.close
+  gw.opsgenie.alert.create: opsgenie.alert.create
   gw1.tank.temp.calibration: tank.temp.calibration
   gw1.tank.temp.calibration.map: tank.temp.calibration.map
   ha1.params: ha1.params

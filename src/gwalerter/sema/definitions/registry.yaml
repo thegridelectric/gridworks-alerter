@@ -1,6 +1,6 @@
 metadata:
   registry_version: "1.0"
-  last_updated: "2026-09-15T21:40:00Z"
+  last_updated: "2026-10-07T13:00:00Z"
   maintainer: "gridworks-energy"
 
 formats:
@@ -120,6 +120,38 @@ enums:
         created: "2024-10-23T19:32:00Z"
         status: "published"
 
+  gw.alert.category:
+    latest_version: "000"
+    owner: gridworks-energy
+    enum_type: "versioned"
+    description: "What kind of subject an alert is about: a house, the fleet, or a platform service; decides the kind enum and the subject field."
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/enums/gw.alert.category/000"
+        created: "2026-09-16T17:45:00Z"
+        status: "published"
+
+  gw.alert.state:
+    owner: gridworks-energy
+    enum_type: "literal"
+    description: "Whether an alert record raises the alert (Firing) or resolves it (Resolved)."
+    schema_url: "https://schemas.electricity.works/enums/gw.alert.state/000"
+    created: "2026-09-16T17:45:00Z"
+    status: "published"
+
+  gw.fleet.alert.kind:
+    latest_version: "000"
+    owner: gridworks-energy
+    enum_type: "versioned"
+    description: "The condition a fleet alert is about, one value per detector, named for what a human acts on."
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/enums/gw.fleet.alert.kind/000"
+        created: "2026-09-16T17:45:00Z"
+        status: "published"
+
   gw.house.alert.kind:
     latest_version: "000"
     owner: gridworks-energy
@@ -130,6 +162,34 @@ enums:
       "000":
         schema_url: "https://schemas.electricity.works/enums/gw.house.alert.kind/000"
         created: "2026-09-15T19:35:00Z"
+        status: "published"
+
+  gw.opsgenie.alert.status:
+    owner: gridworks-energy
+    enum_type: "literal"
+    description: "Whether Opsgenie holds an alert Open or Closed."
+    schema_url: "https://schemas.electricity.works/enums/gw.opsgenie.alert.status/000"
+    created: "2026-10-07T12:20:00Z"
+    status: "published"
+
+  gw.opsgenie.priority:
+    owner: gridworks-energy
+    enum_type: "literal"
+    description: "Opsgenie's five alert priorities, P1 the most urgent."
+    schema_url: "https://schemas.electricity.works/enums/gw.opsgenie.priority/000"
+    created: "2026-10-07T12:20:00Z"
+    status: "published"
+
+  gw.platform.alert.kind:
+    latest_version: "000"
+    owner: gridworks-energy
+    enum_type: "versioned"
+    description: "The condition a platform-service alert is about, one value per check, named for what a human acts on."
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/enums/gw.platform.alert.kind/000"
+        created: "2026-09-16T17:45:00Z"
         status: "published"
 
   gw1.actor.class:
@@ -192,8 +252,8 @@ enums:
     enum_type: "versioned"
     description: "System operational mode for HVAC control. Conflated actuation authority with the thermal service (Heating doubled as full authority)."
     replaced_by:
-      - "gw1.actuation.authority"
       - "gw1.service.mode"
+      - "gw.operational.params"
 
     versions:
       "000":
@@ -554,44 +614,86 @@ types:
             - "left.right.dot"
             - "uuid4.str"
 
-  gw.house.alert:
+  gw.alert:
     latest_version: "000"
     owner: gridworks-energy
     versioning_strategy: "literal"
-    description: "An alerting service's report that a condition needing human attention has been detected at a house, with the readings that fired it."
+    description: "An alerting service's report that a condition needing human attention has started (Firing) or stopped (Resolved) holding, about a house, the fleet, or a platform service."
 
     versions:
       "000":
-        schema_url: "https://schemas.electricity.works/types/gw.house.alert/000"
-        created: "2026-09-15T19:35:00Z"
+        schema_url: "https://schemas.electricity.works/types/gw.alert/000"
+        created: "2026-09-16T17:45:00Z"
         status: "published"
-        summary: "Initial Sema version. Axiom 1 TerminalAssetAliasConstraint: AboutGNodeAlias names the house's terminal asset (suffix .ta), never its scada."
+        summary: "Initial Sema version. One word for both transitions (State), a Category choosing the Kind enum (axiom 1), House requiring a .ta AboutGNodeAlias (axiom 2), ResolvedMs iff Resolved (axiom 3)."
         direct_dependencies:
           structural:
             - "channel.readings:002"
+            - "gw.alert.category:000"
+            - "gw.alert.state:000"
+            - "gw.fleet.alert.kind:000"
             - "gw.house.alert.kind:000"
+            - "gw.platform.alert.kind:000"
             - "left.right.dot"
             - "utc.milliseconds"
             - "uuid4.str"
 
-  gw.house.alert.cleared:
+  gw.opsgenie.alert:
     latest_version: "000"
     owner: gridworks-energy
     versioning_strategy: "literal"
-    description: "An alerting service's report that a previously raised house alert no longer holds, with the readings that cleared it."
+    description: "One alert as Opsgenie's Alert API lists it, in the fields GridWorks reads: alias, status, acknowledgement, count, times, who acknowledged and closed."
 
     versions:
       "000":
-        schema_url: "https://schemas.electricity.works/types/gw.house.alert.cleared/000"
-        created: "2026-09-15T19:35:00Z"
+        schema_url: "https://schemas.electricity.works/types/gw.opsgenie.alert/000"
+        created: "2026-10-07T12:20:00Z"
         status: "published"
-        summary: "Initial Sema version. Axiom 1 TerminalAssetAliasConstraint as on gw.house.alert."
+        summary: "Initial Sema version. ClosedBy present iff Status is Closed (axiom 1)."
         direct_dependencies:
           structural:
-            - "channel.readings:002"
-            - "gw.house.alert.kind:000"
-            - "left.right.dot"
+            - "gw.opsgenie.alert.status:000"
+            - "gw.opsgenie.priority:000"
+            - "non.empty.string"
+            - "positive.int"
             - "utc.milliseconds"
+            - "uuid4.str"
+
+  gw.opsgenie.alert.close:
+    latest_version: "000"
+    owner: gridworks-energy
+    versioning_strategy: "literal"
+    description: "The request a GridWorks tap posts to close an Opsgenie alert by alias from a gw.alert Resolved record."
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/types/gw.opsgenie.alert.close/000"
+        created: "2026-10-07T12:20:00Z"
+        status: "published"
+        summary: "Initial Sema version."
+        direct_dependencies:
+          structural:
+            - "left.right.dot"
+            - "non.empty.string"
+            - "uuid4.str"
+
+  gw.opsgenie.alert.create:
+    latest_version: "000"
+    owner: gridworks-energy
+    versioning_strategy: "literal"
+    description: "The request a GridWorks tap posts to create an Opsgenie alert from a gw.alert Firing record, with the alert's facts as named details."
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/types/gw.opsgenie.alert.create/000"
+        created: "2026-10-07T12:20:00Z"
+        status: "published"
+        summary: "Initial Sema version. House and About present together (axiom 1)."
+        direct_dependencies:
+          structural:
+            - "gw.opsgenie.priority:000"
+            - "left.right.dot"
+            - "non.empty.string"
             - "uuid4.str"
 
   gw1.tank.temp.calibration:
