@@ -4,6 +4,7 @@ tests point those at a temp dir before any settings or actor exists."""
 from __future__ import annotations
 
 import json
+import socket
 import uuid
 from pathlib import Path
 
@@ -28,8 +29,21 @@ def xdg_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("GWALERTER_FLEET_ROOTS", FLEET_ROOT)
     monkeypatch.setenv("GWALERTER_GNR_URL", GNR_URL)
     monkeypatch.setenv("GWALERTER_SUPER_ALIAS", "d1.super1")
+    monkeypatch.setenv("GWALERTER_PROBE_AMQP_URL", "amqp://u:p@localhost:5672/d1__1")
+    monkeypatch.setenv("GWALERTER_PROBE_MQTT_HOST", "localhost")
     monkeypatch.setenv("GWALERTER_TIME_COORDINATOR_ALIAS", "d1.time")
+    monkeypatch.setenv("GWALERTER_OPSGENIE_API_KEY", "key-0000")
+    monkeypatch.setenv("GWALERTER_OPSGENIE_TEAM_ID", "team-0000")
     return tmp_path
+
+
+def broker_up() -> bool:
+    """Whether the gwbase dev broker is on localhost:5672."""
+    try:
+        with socket.create_connection(("localhost", 5672), timeout=1):
+            return True
+    except OSError:
+        return False
 
 
 @pytest.fixture

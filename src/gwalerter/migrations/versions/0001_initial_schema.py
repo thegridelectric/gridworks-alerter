@@ -62,25 +62,27 @@ def upgrade() -> None:
     op.create_table(
         "alerts",
         sa.Column("alert_id", sa.String(), nullable=False),
-        sa.Column("about_g_node_alias", sa.String(), nullable=False),
+        sa.Column("category", sa.String(), nullable=False),
+        sa.Column("about_g_node_alias", sa.String(), nullable=True),
+        sa.Column("subject", sa.String(), nullable=True),
         sa.Column("kind", sa.String(), nullable=False),
         sa.Column("raised_ms", sa.BigInteger(), nullable=False),
         sa.Column("payload", sa.JSON(), nullable=False),
-        sa.Column("cleared_ms", sa.BigInteger(), nullable=True),
-        sa.Column("cleared_payload", sa.JSON(), nullable=True),
+        sa.Column("resolved_ms", sa.BigInteger(), nullable=True),
+        sa.Column("resolved_payload", sa.JSON(), nullable=True),
         sa.PrimaryKeyConstraint("alert_id"),
     )
     op.create_index(
-        "ix_alerts_about_kind_cleared",
+        "ix_alerts_open",
         "alerts",
-        ["about_g_node_alias", "kind", "cleared_ms"],
+        ["category", "about_g_node_alias", "subject", "kind", "resolved_ms"],
         unique=False,
     )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index("ix_alerts_about_kind_cleared", table_name="alerts")
+    op.drop_index("ix_alerts_open", table_name="alerts")
     op.drop_table("alerts")
     op.drop_index(op.f("ix_readings_received_ms"), table_name="readings")
     op.drop_index("ix_readings_scada_channel_read", table_name="readings")

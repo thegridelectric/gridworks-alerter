@@ -150,10 +150,14 @@ types:
       - uuid4.str
       types: []
       versionless_types: []
-  gw.house.alert:
+  gw.alert:
     '000':
       enums:
+      - gw.alert.category:000
+      - gw.alert.state:000
+      - gw.fleet.alert.kind:000
       - gw.house.alert.kind:000
+      - gw.platform.alert.kind:000
       formats:
       - left.right.dot
       - spaceheat.name
@@ -162,17 +166,36 @@ types:
       types:
       - channel.readings:002
       versionless_types: []
-  gw.house.alert.cleared:
+  gw.opsgenie.alert:
     '000':
       enums:
-      - gw.house.alert.kind:000
+      - gw.opsgenie.alert.status:000
+      - gw.opsgenie.priority:000
       formats:
-      - left.right.dot
-      - spaceheat.name
+      - non.empty.string
+      - positive.int
       - utc.milliseconds
       - uuid4.str
-      types:
-      - channel.readings:002
+      types: []
+      versionless_types: []
+  gw.opsgenie.alert.close:
+    '000':
+      enums: []
+      formats:
+      - left.right.dot
+      - non.empty.string
+      - uuid4.str
+      types: []
+      versionless_types: []
+  gw.opsgenie.alert.create:
+    '000':
+      enums:
+      - gw.opsgenie.priority:000
+      formats:
+      - left.right.dot
+      - non.empty.string
+      - uuid4.str
+      types: []
       versionless_types: []
   gw1.tank.temp.calibration:
     '000':

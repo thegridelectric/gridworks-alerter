@@ -27,17 +27,23 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from gwalerter.db_models import AlertSql, GNodeSql, LayoutSql, ReadingSql
 from gwalerter.sema.codec import default_codec
-from gwalerter.sema.enums import GNodeStatus, HouseAlertKind
+from gwalerter.sema.enums import (
+    AlertCategory,
+    AlertState,
+    FleetAlertKind,
+    GNodeStatus,
+    HouseAlertKind,
+    PlatformAlertKind,
+)
 from gwalerter.sema.property_format import (
     LeftRightDot,
     SpaceheatName,
     UTCMilliseconds,
 )
 from gwalerter.sema.types import (
+    Alert,
     GNodeForest,
     GNodeGt,
-    HouseAlert,
-    HouseAlertCleared,
     LayoutLite,
     ReportEvent,
 )
@@ -306,30 +312,52 @@ class Store:
     # -- alert state ------------------------------------------------------
 
     def open_alert(
-        self, about_g_node_alias: LeftRightDot, kind: HouseAlertKind
-    ) -> HouseAlert | None:
-        """The alert of this kind currently open on this house, if any: the
-        row with no cleared word. At most one is open per house and kind."""
+        self,
+        category: AlertCategory,
+        kind: HouseAlertKind | FleetAlertKind | PlatformAlertKind,
+        *,
+        about_g_node_alias: LeftRightDot | None = None,
+        subject: str | None = None,
+    ) -> Alert | None:
+        """The `Firing` record of the alert of this kind currently open on
+        this subject, if any: the row with no `Resolved` record. The
+        subject is the house alias for a House alert, else `subject`. At
+        most one is open per subject and kind."""
+        query = (
+            select(AlertSql)
+            .where(AlertSql.category == category.value)
+            .where(AlertSql.kind == kind.value)
+            .where(AlertSql.resolved_ms.is_(None))
+        )
+        if about_g_node_alias is None:
+            query = query.where(AlertSql.about_g_node_alias.is_(None))
+        else:
+            query = query.where(AlertSql.about_g_node_alias == about_g_node_alias)
+        if subject is None:
+            query = query.where(AlertSql.subject.is_(None))
+        else:
+            query = query.where(AlertSql.subject == subject)
         with self.lock, self.session() as s:
-            row = s.scalar(
-                select(AlertSql)
-                .where(AlertSql.about_g_node_alias == about_g_node_alias)
-                .where(AlertSql.kind == kind.value)
-                .where(AlertSql.cleared_ms.is_(None))
-                .order_by(AlertSql.raised_ms.desc())
-            )
+            row = s.scalar(query.order_by(AlertSql.raised_ms.desc()))
         if row is None:
             return None
-        return default_codec.from_dict(row.payload, expect=HouseAlert)
+        return default_codec.from_dict(row.payload, expect=Alert)
 
-    def raise_alert(self, alert: HouseAlert) -> None:
-        """Record a raised alert word. Recorded before it is broadcast, so a
-        restart between the two neither re-raises nor forgets it."""
+    def raise_alert(self, alert: Alert) -> None:
+        """Record a `Firing` record, which opens the alert. Recorded before
+        it is broadcast, so a restart between the two neither re-raises nor
+        forgets it."""
+        if alert.state is not AlertState.Firing:
+            raise ValueError(
+                f"raise_alert takes a Firing record; got {alert.state.value}"
+            )
         with self.lock, self.session() as s:
             s.add(
                 AlertSql(
                     alert_id=alert.alert_id,
+                    category=alert.category.value,
                     about_g_node_alias=alert.about_g_node_alias,
+                    subject=alert.subject,
                     kind=alert.kind.value,
                     raised_ms=alert.raised_ms,
                     payload=alert.to_dict(),
@@ -337,25 +365,51 @@ class Store:
             )
             s.commit()
 
-    def clear_alert(self, cleared: HouseAlertCleared) -> None:
-        """Record the cleared word against its alert, which closes it."""
+    def clear_alert(self, resolved: Alert) -> None:
+        """Record a `Resolved` record against the alert with its `AlertId`,
+        which closes it."""
+        if resolved.state is not AlertState.Resolved:
+            raise ValueError(
+                f"clear_alert takes a Resolved record; got {resolved.state.value}"
+            )
         with self.lock, self.session() as s:
-            row = s.get(AlertSql, cleared.alert_id)
+            row = s.get(AlertSql, resolved.alert_id)
             if row is None:
-                raise KeyError(f"no alert {cleared.alert_id} to clear")
-            row.cleared_ms = cleared.cleared_ms
-            row.cleared_payload = cleared.to_dict()
+                raise KeyError(f"no alert {resolved.alert_id} to resolve")
+            row.resolved_ms = resolved.resolved_ms
+            row.resolved_payload = resolved.to_dict()
             s.commit()
 
-    def alerts(self, about_g_node_alias: LeftRightDot) -> list[HouseAlert]:
-        """Every alert ever raised on a house, oldest first."""
+    def open_alerts(self) -> list[Alert]:
+        """The `Firing` record of every alert currently open, oldest first:
+        what a restarted consumer of the alert words has to be told again."""
+        with self.lock, self.session() as s:
+            rows = s.scalars(
+                select(AlertSql)
+                .where(AlertSql.resolved_ms.is_(None))
+                .order_by(AlertSql.raised_ms)
+            ).all()
+        return [default_codec.from_dict(r.payload, expect=Alert) for r in rows]
+
+    def resolved_record(self, alert_id: str) -> Alert | None:
+        """The `Resolved` record of a closed alert, or None while it is
+        open or unknown."""
+        with self.lock, self.session() as s:
+            row = s.get(AlertSql, alert_id)
+        if row is None or row.resolved_payload is None:
+            return None
+        return default_codec.from_dict(row.resolved_payload, expect=Alert)
+
+    def alerts(self, about_g_node_alias: LeftRightDot) -> list[Alert]:
+        """The `Firing` record of every alert ever raised on a house, oldest
+        first."""
         with self.lock, self.session() as s:
             rows = s.scalars(
                 select(AlertSql)
                 .where(AlertSql.about_g_node_alias == about_g_node_alias)
                 .order_by(AlertSql.raised_ms)
             ).all()
-        return [default_codec.from_dict(r.payload, expect=HouseAlert) for r in rows]
+        return [default_codec.from_dict(r.payload, expect=Alert) for r in rows]
 
     def reading(self, row: ReadingSql) -> Reading:
         return Reading(

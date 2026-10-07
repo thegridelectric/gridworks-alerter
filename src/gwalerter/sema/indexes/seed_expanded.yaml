@@ -1,6 +1,6 @@
 metadata:
   generated_from: indexes/public_registry.yaml
-  generated_at: '2026-09-15T21:47:09Z'
+  generated_at: '2026-10-07T13:04:40Z'
   note: Transitive closure of initial_targets
 initial_targets:
 - report.event:000
@@ -9,8 +9,10 @@ initial_targets:
 - report.event:004
 - layout.lite:011
 - layout.lite:012
-- gw.house.alert:000
-- gw.house.alert.cleared:000
+- gw.alert:000
+- gw.opsgenie.alert.create:000
+- gw.opsgenie.alert.close:000
+- gw.opsgenie.alert:000
 - g.node.forest:002
 - g.node.forest.request:000
 worklist:
@@ -49,9 +51,27 @@ worklist:
     gpm.from.hz.method:
       '000':
         path: definitions/enums/gpm.from.hz.method/000.yaml
+    gw.alert.category:
+      '000':
+        path: definitions/enums/gw.alert.category/000.yaml
+    gw.alert.state:
+      '000':
+        path: definitions/enums/gw.alert.state/000.yaml
+    gw.fleet.alert.kind:
+      '000':
+        path: definitions/enums/gw.fleet.alert.kind/000.yaml
     gw.house.alert.kind:
       '000':
         path: definitions/enums/gw.house.alert.kind/000.yaml
+    gw.opsgenie.alert.status:
+      '000':
+        path: definitions/enums/gw.opsgenie.alert.status/000.yaml
+    gw.opsgenie.priority:
+      '000':
+        path: definitions/enums/gw.opsgenie.priority/000.yaml
+    gw.platform.alert.kind:
+      '000':
+        path: definitions/enums/gw.platform.alert.kind/000.yaml
     gw1.actor.class:
       009:
         path: definitions/enums/gw1.actor.class/009.yaml
@@ -137,12 +157,18 @@ worklist:
     g.node.gt:
       '006':
         path: definitions/types/g.node.gt/006.yaml
-    gw.house.alert:
+    gw.alert:
       '000':
-        path: definitions/types/gw.house.alert/000.yaml
-    gw.house.alert.cleared:
+        path: definitions/types/gw.alert/000.yaml
+    gw.opsgenie.alert:
       '000':
-        path: definitions/types/gw.house.alert.cleared/000.yaml
+        path: definitions/types/gw.opsgenie.alert/000.yaml
+    gw.opsgenie.alert.close:
+      '000':
+        path: definitions/types/gw.opsgenie.alert.close/000.yaml
+    gw.opsgenie.alert.create:
+      '000':
+        path: definitions/types/gw.opsgenie.alert.create/000.yaml
     gw1.tank.temp.calibration:
       '000':
         path: definitions/types/gw1.tank.temp.calibration/000.yaml

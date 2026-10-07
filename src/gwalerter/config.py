@@ -6,7 +6,7 @@ from typing import Annotated
 from gwbase.config import ServiceSettings
 from gwbase.config.paths import data_dir
 from gwbase.transport_format import LeftRightDot
-from pydantic import BeforeValidator
+from pydantic import BeforeValidator, SecretStr
 from pydantic_settings import NoDecode, SettingsConfigDict
 
 
@@ -52,6 +52,30 @@ class AlerterSettings(ServiceSettings):
 
     # How often the detectors re-evaluate their rules.
     detector_tick_s: int = 10
+
+    # The tap: Opsgenie's Alert API (the EU region is a different host),
+    # the integration API key and the team every alert pages. No
+    # defaults for the key and team: each deployment names who is paged.
+    opsgenie_url: str = "https://api.opsgenie.com"
+    opsgenie_api_key: SecretStr
+    opsgenie_team_id: str
+    # How often the tap reconciles what Opsgenie has been told against the
+    # store's open alerts: the tap's only path, so this is the longest a
+    # page waits (a local sqlite read; seconds, against thresholds that
+    # are minutes).
+    tap_reconcile_s: int = 10
+
+    # The prober (`gwalerter probe`): the two broker doors it checks as a
+    # client, the AMQPS URL (its own scoped user) and the MQTT TLS
+    # listener the scadas use; no defaults, each deployment names its
+    # broker. One probe per interval; a door that fails this many probes
+    # running raises BrokerUnreachable.
+    probe_amqp_url: SecretStr
+    probe_mqtt_host: str
+    probe_mqtt_port: int = 8883
+    probe_mqtt_tls: bool = True
+    probe_interval_s: int = 60
+    probe_failures_to_raise: int = 3
 
     model_config = SettingsConfigDict(
         env_prefix="GWALERTER_",

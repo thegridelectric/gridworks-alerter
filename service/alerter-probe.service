@@ -1,0 +1,16 @@
+[Unit]
+Description=GridWorks alerter broker prober (gwalerter probe)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=alerter
+WorkingDirectory=/home/alerter/gridworks-alerter
+ExecStart=/home/alerter/gridworks-alerter/.venv/bin/gwalerter probe
+Restart=always
+RestartSec=5
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

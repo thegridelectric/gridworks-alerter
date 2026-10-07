@@ -66,20 +66,30 @@ class ReadingSql(Base):
 
 
 class AlertSql(Base):
-    """One `gw.house.alert` and, once it ends, its `gw.house.alert.cleared`:
-    the alerter's open-alert state, which survives a restart."""
+    """One `gw.alert` instance: its `Firing` record and, once it ends, its
+    `Resolved` record with the same `AlertId`. The alerter's open-alert
+    state, which survives a restart. `category`, `about_g_node_alias` and
+    `subject` say what the alert is about; which of the last two is set
+    follows the category."""
 
     __tablename__ = "alerts"
     __table_args__ = (
         Index(
-            "ix_alerts_about_kind_cleared", "about_g_node_alias", "kind", "cleared_ms"
+            "ix_alerts_open",
+            "category",
+            "about_g_node_alias",
+            "subject",
+            "kind",
+            "resolved_ms",
         ),
     )
 
     alert_id: Mapped[str] = mapped_column(String, primary_key=True)
-    about_g_node_alias: Mapped[str] = mapped_column(String)
+    category: Mapped[str] = mapped_column(String)
+    about_g_node_alias: Mapped[str | None] = mapped_column(String, nullable=True)
+    subject: Mapped[str | None] = mapped_column(String, nullable=True)
     kind: Mapped[str] = mapped_column(String)
     raised_ms: Mapped[int] = mapped_column(BigInteger)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON)
-    cleared_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    cleared_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    resolved_ms: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    resolved_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)

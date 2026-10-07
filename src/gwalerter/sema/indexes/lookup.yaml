@@ -63,16 +63,26 @@ types:
     versioning_strategy: literal
     versions:
       '006': definitions/types/g.node.gt/006.yaml
-  gw.house.alert:
+  gw.alert:
     latest_version: '000'
     versioning_strategy: literal
     versions:
-      '000': definitions/types/gw.house.alert/000.yaml
-  gw.house.alert.cleared:
+      '000': definitions/types/gw.alert/000.yaml
+  gw.opsgenie.alert:
     latest_version: '000'
     versioning_strategy: literal
     versions:
-      '000': definitions/types/gw.house.alert.cleared/000.yaml
+      '000': definitions/types/gw.opsgenie.alert/000.yaml
+  gw.opsgenie.alert.close:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/gw.opsgenie.alert.close/000.yaml
+  gw.opsgenie.alert.create:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/gw.opsgenie.alert.create/000.yaml
   gw1.tank.temp.calibration:
     latest_version: '000'
     versioning_strategy: literal
@@ -175,11 +185,35 @@ enums:
     latest_version: '000'
     versions:
       '000': definitions/enums/gpm.from.hz.method/000.yaml
+  gw.alert.category:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gw.alert.category/000.yaml
+  gw.alert.state:
+    enum_type: literal
+    schema: definitions/enums/gw.alert.state/000.yaml
+  gw.fleet.alert.kind:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gw.fleet.alert.kind/000.yaml
   gw.house.alert.kind:
     enum_type: versioned
     latest_version: '000'
     versions:
       '000': definitions/enums/gw.house.alert.kind/000.yaml
+  gw.opsgenie.alert.status:
+    enum_type: literal
+    schema: definitions/enums/gw.opsgenie.alert.status/000.yaml
+  gw.opsgenie.priority:
+    enum_type: literal
+    schema: definitions/enums/gw.opsgenie.priority/000.yaml
+  gw.platform.alert.kind:
+    enum_type: versioned
+    latest_version: '000'
+    versions:
+      '000': definitions/enums/gw.platform.alert.kind/000.yaml
   gw1.actor.class:
     enum_type: versioned
     latest_version: '011'
