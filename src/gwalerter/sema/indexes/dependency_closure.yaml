@@ -397,22 +397,6 @@ types:
       types: []
       versionless_types: []
   report:
-    '001':
-      enums:
-      - fsm.report.type:000
-      formats:
-      - handle.name
-      - left.right.dot
-      - positive.int
-      - spaceheat.name
-      - utc.milliseconds
-      - utc.seconds
-      - uuid4.str
-      types:
-      - channel.readings:002
-      - fsm.atomic.report:000
-      - fsm.full.report:000
-      versionless_types: []
     '002':
       enums:
       - fsm.report.type:000
@@ -454,23 +438,6 @@ types:
       - machine.states:000
       versionless_types: []
   report.event:
-    '000':
-      enums:
-      - fsm.report.type:000
-      formats:
-      - handle.name
-      - left.right.dot
-      - positive.int
-      - spaceheat.name
-      - utc.milliseconds
-      - utc.seconds
-      - uuid4.str
-      types:
-      - channel.readings:002
-      - fsm.atomic.report:000
-      - fsm.full.report:000
-      - report:001
-      versionless_types: []
     '002':
       enums:
       - fsm.report.type:000

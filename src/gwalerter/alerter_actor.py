@@ -45,6 +45,8 @@ from gwalerter.sema.types import (
     LayoutLite,
     ReportEvent,
 )
+from gwalerter.sema.types.old_versions.report_event_002 import ReportEvent002
+from gwalerter.sema.types.old_versions.report_event_003 import ReportEvent003
 from gwalerter.store import Store
 
 TRACKED_TYPES: frozenset[str] = frozenset({
@@ -162,13 +164,13 @@ class AlerterActor(Orchestrator):
         received_ms = self.clock_ms()
         try:
             _header, payload = unwrap_bytes(body)
-            message = self.codec.from_dict(payload)
+            message = self.codec.from_dict(payload, auto_upgrade=False)
         except Exception as e:  # noqa: BLE001 -- the live path keeps running
             self.logger.error(
                 "Dropped %s from %s: %r", envelope.type_name, envelope.from_alias, e
             )
             return
-        if isinstance(message, ReportEvent):
+        if isinstance(message, (ReportEvent, ReportEvent002, ReportEvent003)):
             self.store.record_report(message, received_ms=received_ms)
             self.note_untracked(message.src)
             self.clear_on_arrival(

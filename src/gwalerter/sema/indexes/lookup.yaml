@@ -138,7 +138,6 @@ types:
     versions:
       '003': definitions/types/report/003.yaml
       '002': definitions/types/report/002.yaml
-      '001': definitions/types/report/001.yaml
   report.event:
     latest_version: '004'
     versioning_strategy: literal
@@ -146,7 +145,6 @@ types:
       '004': definitions/types/report.event/004.yaml
       '003': definitions/types/report.event/003.yaml
       '002': definitions/types/report.event/002.yaml
-      '000': definitions/types/report.event/000.yaml
   sim.pico.tank.module.component.gt:
     latest_version: '000'
     versioning_strategy: literal

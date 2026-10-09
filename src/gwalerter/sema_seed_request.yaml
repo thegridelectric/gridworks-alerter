@@ -6,9 +6,9 @@
 # in the sema repo, then mirrors output/sema -> src/gwalerter/sema).
 # src/gwalerter/sema is generated — edit this seed, not the vendored output.
 #
-# The alerter decodes what the fleet's scadas send: every report.event
-# version on the wire, and the published layout.lite versions the current
-# scada releases send, projects the registry's forest broadcasts and
+# The alerter decodes what the fleet's scadas send: the report.event
+# versions on the wire (002 through 004), each at its sent version, and
+# the published layout.lite versions the current scada releases send, projects the registry's forest broadcasts and
 # requests one at boot, emits gw.alert, and pages through Opsgenie with
 # the gw.opsgenie words: the tap's create and close requests and the
 # alert as Opsgenie lists it back. A box runs a published-only
@@ -18,7 +18,7 @@
 initial_targets:
   types:
     report.event:
-      include_all_versions: true
+      versions: ["002", "003", "004"]
     layout.lite:
       versions: ["011", "012"]
     gw.alert:

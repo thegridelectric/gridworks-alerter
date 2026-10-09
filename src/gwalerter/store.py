@@ -47,6 +47,8 @@ from gwalerter.sema.types import (
     LayoutLite,
     ReportEvent,
 )
+from gwalerter.sema.types.old_versions.report_event_002 import ReportEvent002
+from gwalerter.sema.types.old_versions.report_event_003 import ReportEvent003
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 TERMINAL_ASSET_CLASS = "TerminalAsset"
@@ -209,10 +211,14 @@ class Store:
             s.commit()
 
     def record_report(
-        self, event: ReportEvent, *, received_ms: UTCMilliseconds
+        self,
+        event: ReportEvent | ReportEvent002 | ReportEvent003,
+        *,
+        received_ms: UTCMilliseconds,
     ) -> None:
-        """Append every reading in the report; readings that arrived before
-        the window leave in the same transaction."""
+        """Append every reading in the report, at the version it was sent;
+        readings that arrived before the window leave in the same
+        transaction."""
         rows = [
             ReadingSql(
                 scada_alias=event.src,

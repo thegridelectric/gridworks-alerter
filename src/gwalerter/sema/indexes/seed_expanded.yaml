@@ -1,9 +1,8 @@
 metadata:
   generated_from: indexes/public_registry.yaml
-  generated_at: '2026-10-07T13:04:40Z'
+  generated_at: '2026-10-09T17:37:20Z'
   note: Transitive closure of initial_targets
 initial_targets:
-- report.event:000
 - report.event:002
 - report.event:003
 - report.event:004
@@ -205,15 +204,11 @@ worklist:
       '002':
         path: definitions/types/relay.actor.config/002.yaml
     report:
-      '001':
-        path: definitions/types/report/001.yaml
       '002':
         path: definitions/types/report/002.yaml
       '003':
         path: definitions/types/report/003.yaml
     report.event:
-      '000':
-        path: definitions/types/report.event/000.yaml
       '002':
         path: definitions/types/report.event/002.yaml
       '003':

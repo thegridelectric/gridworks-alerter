@@ -47,12 +47,20 @@ def test_report_event_reaches_the_store(
     assert house.last_heard_ms == 1_800_000_000_000
 
 
-def test_older_report_event_version_is_upgraded(
+def test_report_counts_at_its_sent_version(
     settings: AlerterSettings, store: Store
 ) -> None:
-    envelope, body = wrapped("report.event", sample("report.event.003.json"))
+    """A 003 report whose MessageId differs from Report.Id is valid as sent
+    (003 carries no identity axiom) and counts as an arrival; upgrading it
+    to 004 would fail 004's axiom and drop the house."""
+    payload = sample("report.event.003.json")
+    payload["MessageId"] = "11111111-2222-4333-8444-555555555555"
+    assert payload["MessageId"] != payload["Report"]["Id"]
+    envelope, body = wrapped("report.event", payload)
     actor(settings, store).dispatch_message(envelope=envelope, body=body)
-    assert [h.alias for h in store.houses()] == [envelope.from_alias]
+    (house,) = store.houses()
+    assert house.alias == envelope.from_alias
+    assert house.last_heard_ms == 1_800_000_000_000
 
 
 def test_layout_lite_reaches_the_store(settings: AlerterSettings, store: Store) -> None:

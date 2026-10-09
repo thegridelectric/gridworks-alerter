@@ -12,7 +12,6 @@ types:
     '002':
       used_by:
       - gw.alert:000
-      - report:001
       - report:002
       - report:003
   connectivity.edge.gt:
@@ -38,14 +37,12 @@ types:
     '000':
       used_by:
       - fsm.full.report:000
-      - report:001
     '001':
       used_by:
       - fsm.full.report:001
   fsm.full.report:
     '000':
       used_by:
-      - report:001
       - report:002
     '001':
       used_by:
@@ -103,9 +100,6 @@ types:
       - i2c.multichannel.dt.relay.component.gt:002
       - i2c.multichannel.dt.relay.component.gt:003
   report:
-    '001':
-      used_by:
-      - report.event:000
     '002':
       used_by:
       - report.event:002
@@ -278,11 +272,9 @@ formats:
     - layout.lite:012
     - machine.states:000
     - relay.actor.config:002
-    - report.event:000
     - report.event:002
     - report.event:003
     - report.event:004
-    - report:001
     - report:002
     - report:003
   non.empty.string:
@@ -300,7 +292,6 @@ formats:
     - layout.lite:012
     - pico.tank.module.component.gt:011
     - relay.actor.config:002
-    - report:001
     - report:002
     - report:003
     - sim.pico.tank.module.component.gt:000
@@ -335,18 +326,15 @@ formats:
     - layout.lite:011
     - layout.lite:012
     - machine.states:000
-    - report.event:000
     - report.event:002
     - report.event:003
     - report.event:004
-    - report:001
     - report:002
     - report:003
   utc.seconds:
     used_by:
     - data.channel.gt:001
     - data.channel.gt:002
-    - report:001
     - report:002
     - report:003
   uuid4.str:
@@ -372,11 +360,9 @@ formats:
     - layout.lite:012
     - pico.flow.module.component.gt:000
     - pico.tank.module.component.gt:011
-    - report.event:000
     - report.event:002
     - report.event:003
     - report.event:004
-    - report:001
     - report:002
     - report:003
     - sim.pico.tank.module.component.gt:000

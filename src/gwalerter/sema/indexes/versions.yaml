@@ -219,8 +219,6 @@ types:
           - StateList: add (machine.states:000)
           - FsmActionList: remove
           - FsmReportList[]: fsm.full.report:000 -> oneOf[000, 001]
-      "001":
-        summary: "Historical back-fill from S3 wire evidence (gwproto era). As v002 but FsmActionList (fsm.atomic.report:000) in place of StateList, and FsmReportList is fsm.full.report:000 only."
 
   report.event:
     latest_version: "004"
@@ -234,8 +232,6 @@ types:
           - Axioms: remove former ReportIdentityPropagation and ReportCreatedTimePropagation
       "002":
         summary: "- Report: report:001 -> 002"
-      "000":
-        summary: "Historical back-fill from S3 wire evidence (gwproto era). As v002 but Report is report:001; same three propagation axioms."
 
   sim.pico.tank.module.component.gt:
     latest_version: "000"

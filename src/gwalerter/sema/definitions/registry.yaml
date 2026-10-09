@@ -1,6 +1,6 @@
 metadata:
   registry_version: "1.0"
-  last_updated: "2026-10-07T13:00:00Z"
+  last_updated: "2026-10-08T21:00:00Z"
   maintainer: "gridworks-energy"
 
 formats:
@@ -964,21 +964,6 @@ types:
             - "utc.milliseconds"
             - "utc.seconds"
             - "uuid4.str"
-      "001":
-        schema_url: "https://schemas.electricity.works/types/report/001"
-        created: "2024-10-12T18:00:00Z"
-        status: "published"
-        summary: "Historical back-fill from S3 wire evidence (gwproto era). As v002 but FsmActionList (fsm.atomic.report:000) in place of StateList, and FsmReportList is fsm.full.report:000 only."
-        direct_dependencies:
-          structural:
-            - "channel.readings:002"
-            - "fsm.atomic.report:000"
-            - "fsm.full.report:000"
-            - "left.right.dot"
-            - "positive.int"
-            - "utc.milliseconds"
-            - "utc.seconds"
-            - "uuid4.str"
 
   report.event:
     latest_version: "004"
@@ -1018,17 +1003,6 @@ types:
           structural:
             - "left.right.dot"
             - "report:002"
-            - "utc.milliseconds"
-            - "uuid4.str"
-      "000":
-        schema_url: "https://schemas.electricity.works/types/report.event/000"
-        created: "2024-10-12T18:05:00Z"
-        status: "published"
-        summary: "Historical back-fill from S3 wire evidence (gwproto era). As v002 but Report is report:001; same three propagation axioms."
-        direct_dependencies:
-          structural:
-            - "left.right.dot"
-            - "report:001"
             - "utc.milliseconds"
             - "uuid4.str"
 
