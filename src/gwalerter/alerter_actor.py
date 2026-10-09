@@ -85,6 +85,7 @@ class AlerterActor(Orchestrator):
             src=settings.service_alias,
             silence_ms=settings.no_data_silence_s * 1000,
             heard_floor_ms=self.clock_ms(),
+            heard_period_ms=settings.heard_period_s * 1000,
         )
         self.detectors_stop = threading.Event()
         self.detector_thread = threading.Thread(
@@ -159,9 +160,11 @@ class AlerterActor(Orchestrator):
             )
 
     def process_message(self, *, envelope: RoutingEnvelope, body: bytes) -> None:
+        received_ms = self.clock_ms()
+        if self.store.under_roots(envelope.from_alias):
+            self.store.record_arrival(envelope.from_alias, received_ms=received_ms)
         if envelope.type_name not in TRACKED_TYPES:
             return
-        received_ms = self.clock_ms()
         try:
             _header, payload = unwrap_bytes(body)
             message = self.codec.from_dict(payload, auto_upgrade=False)

@@ -65,6 +65,17 @@ class ReadingSql(Base):
     received_ms: Mapped[int] = mapped_column(BigInteger, index=True)
 
 
+class ArrivalSql(Base):
+    """The latest arrival from one alias, any message type, read off the
+    routing envelope with the body undecoded: who was last heard, when.
+    Whether a house's scada and LTN are speaking is read from here."""
+
+    __tablename__ = "arrivals"
+
+    alias: Mapped[str] = mapped_column(String, primary_key=True)
+    received_ms: Mapped[int] = mapped_column(BigInteger)
+
+
 class AlertSql(Base):
     """One `gw.alert` instance: its `Firing` record and, once it ends, its
     `Resolved` record with the same `AlertId`. The alerter's open-alert

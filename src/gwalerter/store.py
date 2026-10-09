@@ -25,7 +25,7 @@ from pydantic import TypeAdapter
 from sqlalchemy import Engine, create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from gwalerter.db_models import AlertSql, GNodeSql, LayoutSql, ReadingSql
+from gwalerter.db_models import AlertSql, ArrivalSql, GNodeSql, LayoutSql, ReadingSql
 from gwalerter.sema.codec import default_codec
 from gwalerter.sema.enums import (
     AlertCategory,
@@ -241,7 +241,26 @@ class Store:
             )
             s.commit()
 
+    def record_arrival(
+        self, alias: LeftRightDot, *, received_ms: UTCMilliseconds
+    ) -> None:
+        """The latest arrival from `alias`, any type, off the routing
+        envelope: one row per alias, overwritten on each arrival."""
+        with self.lock, self.session() as s:
+            row = s.get(ArrivalSql, alias)
+            if row is None:
+                s.add(ArrivalSql(alias=alias, received_ms=received_ms))
+            else:
+                row.received_ms = received_ms
+            s.commit()
+
     # -- reads -----------------------------------------------------------
+
+    def last_arrival(self, alias: LeftRightDot) -> UTCMilliseconds | None:
+        """When anything last arrived from `alias`; None if never."""
+        with self.lock, self.session() as s:
+            row = s.get(ArrivalSql, alias)
+        return None if row is None else UTC_MS.validate_python(row.received_ms)
 
     def houses(self) -> list[HouseRecord]:
         """Every scada heard from, with last-heard as a query over readings
@@ -369,6 +388,20 @@ class Store:
                     payload=alert.to_dict(),
                 )
             )
+            s.commit()
+
+    def update_alert(self, firing: Alert) -> None:
+        """Rewrite the `Firing` record of an open alert, same `AlertId`: the
+        summary moved while the alert stayed open."""
+        if firing.state is not AlertState.Firing:
+            raise ValueError(
+                f"update_alert takes a Firing record; got {firing.state.value}"
+            )
+        with self.lock, self.session() as s:
+            row = s.get(AlertSql, firing.alert_id)
+            if row is None or row.resolved_ms is not None:
+                raise KeyError(f"no open alert {firing.alert_id} to update")
+            row.payload = firing.to_dict()
             s.commit()
 
     def clear_alert(self, resolved: Alert) -> None:

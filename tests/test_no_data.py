@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 from gwbase.actor_base import OnSendMessageDiagnostic
 
-from gwalerter.no_data import NoDataRule, iso_utc
+from gwalerter.no_data import CAUSE_CLAUSES, NYQUIST, NoDataRule, iso_utc
 from gwalerter.sema.base import SemaError
 from gwalerter.sema.codec import default_codec
 from gwalerter.sema.enums import (
@@ -51,9 +51,19 @@ def open_no_data(store: Store) -> Alert | None:
     )
 
 
+HEARD_PERIOD_MS = 60_000
+HEARD_FRESH_MS = int(HEARD_PERIOD_MS * NYQUIST)
+LTN = HOUSE
+SCADA = f"{HOUSE}.scada"
+
+
 def rule(store: Store, boot_ms: int = BOOT_MS) -> NoDataRule:
     return NoDataRule(
-        store, src="d1.alerts", silence_ms=SILENCE_MS, heard_floor_ms=boot_ms
+        store,
+        src="d1.alerts",
+        silence_ms=SILENCE_MS,
+        heard_floor_ms=boot_ms,
+        heard_period_ms=HEARD_PERIOD_MS,
     )
 
 
@@ -279,3 +289,78 @@ def test_firing_and_resolved_round_trip_under_the_axioms(store: Store) -> None:
         default_codec.from_dict(
             {**wire, "ResolvedMs": T0 + 2 * SILENCE_MS}, expect=Alert
         )
+
+
+# -- the cause clause -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("scada", "ltn", "clause"),
+    [
+        (False, False, CAUSE_CLAUSES["both_silent"]),
+        (False, True, CAUSE_CLAUSES["scada_silent"]),
+        (True, False, CAUSE_CLAUSES["ltn_silent"]),
+        (True, True, CAUSE_CLAUSES["both_speaking"]),
+    ],
+)
+def test_the_summary_names_the_cause(
+    store: Store, scada: bool, ltn: bool, clause: str
+) -> None:
+    """Each party heard at all inside the window: the clause reads which
+    are missing. Envelope arrivals, no body decoded, no type looked at."""
+    tracked_spruce(store)
+    now = T0 + SILENCE_MS
+    if scada:
+        store.record_arrival(SCADA, received_ms=now - 30_000)
+    if ltn:
+        store.record_arrival(LTN, received_ms=now - 60_000)
+    (alert,) = rule(store).evaluate(now)
+    assert alert.summary == f"No data from {HOUSE}.ta since {iso_utc(T0)} ({clause})"
+
+
+def test_a_party_outside_the_window_is_silent(store: Store) -> None:
+    """A scada last heard a Nyquist window ago (2.1 periods) is silent,
+    even though that is well inside the NoData threshold."""
+    tracked_spruce(store)
+    now = T0 + SILENCE_MS
+    store.record_arrival(SCADA, received_ms=now - HEARD_FRESH_MS)
+    store.record_arrival(LTN, received_ms=now - 60_000)
+    (alert,) = rule(store).evaluate(now)
+    assert alert.summary.endswith(f"({CAUSE_CLAUSES['scada_silent']})")
+
+
+def test_the_open_alert_summary_follows_the_cause(store: Store) -> None:
+    """The clause is re-read on every tick: when it changes, the open
+    alert's Firing record is rewritten in the store and returned again
+    under the same AlertId, and nothing new is raised."""
+    tracked_spruce(store)
+    r = rule(store)
+    now = T0 + SILENCE_MS
+    (firing,) = r.evaluate(now)
+    assert firing.summary.endswith(f"({CAUSE_CLAUSES['both_silent']})")
+    assert r.evaluate(now + 10_000) == []
+    store.record_arrival(LTN, received_ms=now + 15_000)
+    (updated,) = r.evaluate(now + 20_000)
+    assert updated.alert_id == firing.alert_id
+    assert updated.state is AlertState.Firing
+    assert updated.raised_ms == firing.raised_ms
+    assert updated.summary.endswith(f"({CAUSE_CLAUSES['scada_silent']})")
+    assert open_no_data(store) == updated
+    assert r.evaluate(now + 30_000) == []
+
+
+def test_actor_counts_every_envelope_under_the_roots(settings, store: Store) -> None:
+    """A message of an untracked type is never decoded, but its envelope
+    is an arrival for the alias that sent it; an alias outside the fleet
+    roots is not counted."""
+    tracked_spruce(store)
+    a = actor(settings, store)
+    envelope, body = wrapped("gridworks.ping", {"TypeName": "gridworks.ping"}, src=LTN)
+    a.dispatch_message(envelope=envelope, body=body)
+    assert store.last_arrival(LTN) == a.clock_ms()
+    stranger = "d1.elsewhere"
+    envelope, body = wrapped(
+        "gridworks.ping", {"TypeName": "gridworks.ping"}, src=stranger
+    )
+    a.dispatch_message(envelope=envelope, body=body)
+    assert store.last_arrival(stranger) is None
