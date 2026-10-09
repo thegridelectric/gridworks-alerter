@@ -45,6 +45,8 @@ from gwalerter.sema.types import (
     LayoutLite,
     ReportEvent,
 )
+from gwalerter.sema.types.old_versions.report_event_002 import ReportEvent002
+from gwalerter.sema.types.old_versions.report_event_003 import ReportEvent003
 from gwalerter.store import Store
 
 TRACKED_TYPES: frozenset[str] = frozenset({
@@ -83,6 +85,7 @@ class AlerterActor(Orchestrator):
             src=settings.service_alias,
             silence_ms=settings.no_data_silence_s * 1000,
             heard_floor_ms=self.clock_ms(),
+            heard_period_ms=settings.heard_period_s * 1000,
         )
         self.detectors_stop = threading.Event()
         self.detector_thread = threading.Thread(
@@ -157,18 +160,20 @@ class AlerterActor(Orchestrator):
             )
 
     def process_message(self, *, envelope: RoutingEnvelope, body: bytes) -> None:
+        received_ms = self.clock_ms()
+        if self.store.under_roots(envelope.from_alias):
+            self.store.record_arrival(envelope.from_alias, received_ms=received_ms)
         if envelope.type_name not in TRACKED_TYPES:
             return
-        received_ms = self.clock_ms()
         try:
             _header, payload = unwrap_bytes(body)
-            message = self.codec.from_dict(payload)
+            message = self.codec.from_dict(payload, auto_upgrade=False)
         except Exception as e:  # noqa: BLE001 -- the live path keeps running
             self.logger.error(
                 "Dropped %s from %s: %r", envelope.type_name, envelope.from_alias, e
             )
             return
-        if isinstance(message, ReportEvent):
+        if isinstance(message, (ReportEvent, ReportEvent002, ReportEvent003)):
             self.store.record_report(message, received_ms=received_ms)
             self.note_untracked(message.src)
             self.clear_on_arrival(

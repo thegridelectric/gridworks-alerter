@@ -51,6 +51,11 @@ class AlerterSettings(ServiceSettings):
     # NoData: a tracked house with no arrival for this long is silent.
     no_data_silence_s: int = 600
 
+    # The NoData summary's cause: how often a house's scada and LTN are
+    # each expected to be heard from, whatever the message. A party is
+    # "speaking" when heard inside this period times the Nyquist factor.
+    heard_period_s: int = 60
+
     # How often the detectors re-evaluate their rules.
     detector_tick_s: int = 10
 
