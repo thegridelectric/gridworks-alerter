@@ -5,10 +5,14 @@ checks answer against the dev broker."""
 
 from __future__ import annotations
 
+import ssl
+import subprocess
 import time
+from pathlib import Path
 
 import pika
 import pytest
+from gwbase.config.rabbit_settings import RabbitTls
 
 from gwalerter.config import AlerterSettings
 from gwalerter.prober import (
@@ -18,6 +22,7 @@ from gwalerter.prober import (
     amqp_parameters,
     amqp_round_trip,
     mqtt_connack,
+    mqtt_ssl_context,
     probe_claims,
 )
 from gwalerter.sema.enums import AlertCategory, AlertState, PlatformAlertKind
@@ -156,7 +161,7 @@ def test_both_doors_answer_on_the_dev_broker(settings: AlerterSettings) -> None:
     # The actor's broker client carries the dev broker's real credentials;
     # the probe block in conftest is a placeholder.
     amqp_round_trip(settings.rabbit, claims=None)
-    mqtt_connack("localhost", 1885, tls=False)
+    mqtt_connack("localhost", 1885, context=None)
 
 
 def test_probe_claims_are_the_probers_own(settings: AlerterSettings) -> None:
@@ -189,4 +194,41 @@ def test_password_probe_has_no_claims_and_a_tls_probe_needs_them(
 
 def test_a_shut_door_fails() -> None:
     with pytest.raises(OSError):
-        mqtt_connack("localhost", 1, tls=False)
+        mqtt_connack("localhost", 1, context=None)
+
+
+def test_mqtt_door_trusts_the_probe_ca(tmp_path: Path) -> None:
+    """The fleet broker's cert chains to the GridWorks CA, which no system
+    store holds: a tls block makes that CA the door's trust root and
+    presents the probe's cert. Field finding 2026-10-08: the door verified
+    against the system store and counted the broker unreachable."""
+    ca = tmp_path / "ca.crt"
+    key = tmp_path / "ca.key"
+    subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "ec",
+            "-pkeyopt",
+            "ec_paramgen_curve:prime256v1",
+            "-nodes",
+            "-days",
+            "1",
+            "-subj",
+            "/CN=throwaway-ca",
+            "-keyout",
+            str(key),
+            "-out",
+            str(ca),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    ctx = mqtt_ssl_context(
+        RabbitTls(ca_cert_path=ca, cert_path=ca, private_key_path=key)
+    )
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+    assert ctx.cert_store_stats()["x509_ca"] == 1
+    assert ctx.get_ca_certs()[0]["subject"] == ((("commonName", "throwaway-ca"),),)

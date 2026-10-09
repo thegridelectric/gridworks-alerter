@@ -35,7 +35,7 @@ from datetime import UTC, datetime
 from typing import NamedTuple
 
 import pika
-from gwbase.config.rabbit_settings import RabbitBrokerClient
+from gwbase.config.rabbit_settings import RabbitBrokerClient, RabbitTls
 from gwbase.credentials import GridworksClaimsCredentials
 from gwbase.sema.types import FisConnectClaims
 from pydantic import TypeAdapter
@@ -133,16 +133,25 @@ def amqp_round_trip(
         connection.close()
 
 
-def mqtt_connack(host: str, port: int, *, tls: bool) -> None:
-    """TLS handshake (the fleet's listener; the dev broker's is plain),
+def mqtt_ssl_context(tls: RabbitTls | None) -> ssl.SSLContext:
+    """The context the MQTT door handshakes with. The fleet broker's cert
+    is signed by the GridWorks CA, which no system trust store holds, so a
+    `tls` block supplies the CA to verify against and the client cert to
+    present; without one the system trust store stands."""
+    if tls is None:
+        return ssl.create_default_context()
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.load_verify_locations(tls.ca_cert_path)
+    ctx.load_cert_chain(tls.cert_path, tls.private_key_path)
+    return ctx
+
+
+def mqtt_connack(host: str, port: int, *, context: ssl.SSLContext | None) -> None:
+    """TLS handshake with `context` (None: the dev broker's plain listener),
     MQTT CONNECT, read a CONNACK. Refused credentials are a CONNACK too:
     the door is open."""
     with socket.create_connection((host, port), timeout=CONNECT_TIMEOUT_S) as raw:
-        sock = (
-            ssl.create_default_context().wrap_socket(raw, server_hostname=host)
-            if tls
-            else raw
-        )
+        sock = context.wrap_socket(raw, server_hostname=host) if context else raw
         with sock:
             payload = struct.pack("!H", len(MQTT_CLIENT_ID)) + MQTT_CLIENT_ID
             # Variable header: protocol name "MQTT", level 4, clean session,
@@ -163,6 +172,7 @@ def doors(settings: AlerterSettings) -> list[Door]:
     claims = (
         probe_claims(settings, str(uuid.uuid4())) if client.tls is not None else None
     )
+    context = mqtt_ssl_context(client.tls) if settings.probe_mqtt_tls else None
     return [
         Door(
             name=amqp_door_name(client.url.get_secret_value()),
@@ -171,9 +181,7 @@ def doors(settings: AlerterSettings) -> list[Door]:
         Door(
             name=f"{settings.probe_mqtt_host}:{settings.probe_mqtt_port}",
             check=lambda: mqtt_connack(
-                settings.probe_mqtt_host,
-                settings.probe_mqtt_port,
-                tls=settings.probe_mqtt_tls,
+                settings.probe_mqtt_host, settings.probe_mqtt_port, context=context
             ),
         ),
     ]
