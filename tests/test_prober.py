@@ -7,10 +7,19 @@ from __future__ import annotations
 
 import time
 
+import pika
 import pytest
 
 from gwalerter.config import AlerterSettings
-from gwalerter.prober import Door, Prober, amqp_door_name, amqp_round_trip, mqtt_connack
+from gwalerter.prober import (
+    Door,
+    Prober,
+    amqp_door_name,
+    amqp_parameters,
+    amqp_round_trip,
+    mqtt_connack,
+    probe_claims,
+)
 from gwalerter.sema.enums import AlertCategory, AlertState, PlatformAlertKind
 from gwalerter.store import Store
 from gwalerter.tap import Tap
@@ -144,8 +153,38 @@ def test_amqp_door_name_drops_the_credential() -> None:
 @pytest.mark.broker
 @pytest.mark.skipif(not broker_up(), reason="gwbase dev broker not on localhost:5672")
 def test_both_doors_answer_on_the_dev_broker(settings: AlerterSettings) -> None:
-    amqp_round_trip(settings.rabbit.url.get_secret_value())
+    # The actor's broker client carries the dev broker's real credentials;
+    # the probe block in conftest is a placeholder.
+    amqp_round_trip(settings.rabbit, claims=None)
     mqtt_connack("localhost", 1885, tls=False)
+
+
+def test_probe_claims_are_the_probers_own(settings: AlerterSettings) -> None:
+    """The prober connects as `<alias>.probe` on the probe URL's run with the
+    instance id it was given: its own principal, never the alerter's."""
+    claims = probe_claims(settings, "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d")
+    assert claims.alias == f"{settings.service_alias}.probe"
+    assert claims.run == settings.probe_amqp.run == "d1__1"
+    assert claims.instance_id == "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+
+
+def test_password_probe_has_no_claims_and_a_tls_probe_needs_them(
+    settings: AlerterSettings,
+) -> None:
+    """Without a tls block the URL's credentials stand; a tls block with
+    no claims is a programming error, not a silent password fallback."""
+    params = amqp_parameters(settings.probe_amqp, claims=None)
+    assert params.ssl_options is None
+    assert isinstance(params.credentials, pika.PlainCredentials)
+    assert params.credentials.username == "u"
+    tls = settings.probe_amqp.model_copy(
+        update={
+            "url": settings.probe_amqp.url,
+            "tls": {"ca_cert_path": "/x", "cert_path": "/y", "private_key_path": "/z"},
+        }
+    )
+    with pytest.raises(ValueError, match="claims"):
+        amqp_parameters(tls, claims=None)
 
 
 def test_a_shut_door_fails() -> None:

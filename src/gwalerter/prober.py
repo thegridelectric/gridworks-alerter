@@ -35,6 +35,9 @@ from datetime import UTC, datetime
 from typing import NamedTuple
 
 import pika
+from gwbase.config.rabbit_settings import RabbitBrokerClient
+from gwbase.credentials import GridworksClaimsCredentials
+from gwbase.sema.types import FisConnectClaims
 from pydantic import TypeAdapter
 
 from gwalerter.config import AlerterSettings
@@ -71,13 +74,47 @@ def iso_utc(ms: UTCMilliseconds) -> str:
     return datetime.fromtimestamp(ms / 1000, tz=UTC).strftime("%Y-%m-%d %H:%M:%SZ")
 
 
-def amqp_round_trip(url: str) -> None:
-    """Connect, declare an exclusive auto-delete queue, publish one message
-    to it through the default exchange and receive it back."""
-    params = pika.URLParameters(url)
+def probe_claims(settings: AlerterSettings, instance_id: str) -> FisConnectClaims:
+    """What the prober asserts at a cert-plus-claims connect: its own
+    alias under the alerter's (`<alias>.probe`, a Service principal of its
+    own, so its lease never contends with the alerter's), this process's
+    instance id, and the run the probe URL's vhost names."""
+    return FisConnectClaims(
+        alias=f"{settings.service_alias}.probe",
+        instance_id=instance_id,
+        run=settings.probe_amqp.run,
+    )
+
+
+def amqp_parameters(
+    client: RabbitBrokerClient, claims: FisConnectClaims | None
+) -> pika.URLParameters:
+    """Connection parameters for the probe. With a `tls` block: mTLS from
+    the declared cert material and the GRIDWORKS mechanism carrying
+    `claims`, the shape every gwbase actor connects with. Without one (the
+    dev broker): the URL's password credentials."""
+    params = pika.URLParameters(client.url.get_secret_value())
     params.socket_timeout = CONNECT_TIMEOUT_S
     params.blocked_connection_timeout = CONNECT_TIMEOUT_S
-    connection = pika.BlockingConnection(params)
+    if client.tls is not None:
+        if claims is None:
+            raise ValueError("a tls block needs claims to connect with")
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.load_verify_locations(client.tls.ca_cert_path)
+        ctx.load_cert_chain(client.tls.cert_path, client.tls.private_key_path)
+        params.ssl_options = pika.SSLOptions(ctx, server_hostname=params.host)
+        # pika-stubs types the credentials slot as the two stock classes;
+        # the runtime accepts what gwbase.credentials registers.
+        params.credentials = GridworksClaimsCredentials(claims)  # pyright: ignore[reportAttributeAccessIssue]
+    return params
+
+
+def amqp_round_trip(
+    client: RabbitBrokerClient, claims: FisConnectClaims | None
+) -> None:
+    """Connect, declare an exclusive auto-delete queue, publish one message
+    to it through the default exchange and receive it back."""
+    connection = pika.BlockingConnection(amqp_parameters(client, claims))
     try:
         channel = connection.channel()
         queue = channel.queue_declare("", exclusive=True, auto_delete=True).method.queue
@@ -119,10 +156,17 @@ def mqtt_connack(host: str, port: int, *, tls: bool) -> None:
 
 
 def doors(settings: AlerterSettings) -> list[Door]:
+    """The two doors, as this process will check them. One instance id for
+    the process's life, so each probe over the gate is the same instance
+    reconnecting under its own lease, never a supersession."""
+    client = settings.probe_amqp
+    claims = (
+        probe_claims(settings, str(uuid.uuid4())) if client.tls is not None else None
+    )
     return [
         Door(
-            name=amqp_door_name(settings.probe_amqp_url.get_secret_value()),
-            check=lambda: amqp_round_trip(settings.probe_amqp_url.get_secret_value()),
+            name=amqp_door_name(client.url.get_secret_value()),
+            check=lambda: amqp_round_trip(client, claims),
         ),
         Door(
             name=f"{settings.probe_mqtt_host}:{settings.probe_mqtt_port}",

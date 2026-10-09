@@ -29,7 +29,7 @@ def xdg_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("GWALERTER_FLEET_ROOTS", FLEET_ROOT)
     monkeypatch.setenv("GWALERTER_GNR_URL", GNR_URL)
     monkeypatch.setenv("GWALERTER_SUPER_ALIAS", "d1.super1")
-    monkeypatch.setenv("GWALERTER_PROBE_AMQP_URL", "amqp://u:p@localhost:5672/d1__1")
+    monkeypatch.setenv("GWALERTER_PROBE_AMQP__URL", "amqp://u:p@localhost:5672/d1__1")
     monkeypatch.setenv("GWALERTER_PROBE_MQTT_HOST", "localhost")
     monkeypatch.setenv("GWALERTER_TIME_COORDINATOR_ALIAS", "d1.time")
     monkeypatch.setenv("GWALERTER_OPSGENIE_API_KEY", "key-0000")

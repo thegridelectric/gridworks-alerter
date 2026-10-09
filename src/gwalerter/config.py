@@ -5,6 +5,7 @@ from typing import Annotated
 
 from gwbase.config import ServiceSettings
 from gwbase.config.paths import data_dir
+from gwbase.config.rabbit_settings import RabbitBrokerClient
 from gwbase.transport_format import LeftRightDot
 from pydantic import BeforeValidator, SecretStr
 from pydantic_settings import NoDecode, SettingsConfigDict
@@ -66,11 +67,13 @@ class AlerterSettings(ServiceSettings):
     tap_reconcile_s: int = 10
 
     # The prober (`gwalerter probe`): the two broker doors it checks as a
-    # client, the AMQPS URL (its own scoped user) and the MQTT TLS
-    # listener the scadas use; no defaults, each deployment names its
-    # broker. One probe per interval; a door that fails this many probes
-    # running raises BrokerUnreachable.
-    probe_amqp_url: SecretStr
+    # client, the AMQP broker client (URL, and with a `tls` block its own
+    # cert: the prober connects as its own principal, `<alias>.probe`,
+    # through the same door a house uses) and the MQTT TLS listener the
+    # scadas use; no defaults, each deployment names its broker. One probe
+    # per interval; a door that fails this many probes running raises
+    # BrokerUnreachable.
+    probe_amqp: RabbitBrokerClient
     probe_mqtt_host: str
     probe_mqtt_port: int = 8883
     probe_mqtt_tls: bool = True
