@@ -262,6 +262,12 @@ class Store:
             row = s.get(ArrivalSql, alias)
         return None if row is None else UTC_MS.validate_python(row.received_ms)
 
+    def latest_arrival(self) -> UTCMilliseconds | None:
+        """When anything last arrived from any alias; None if never."""
+        with self.lock, self.session() as s:
+            ms = s.execute(select(func.max(ArrivalSql.received_ms))).scalar()
+        return None if ms is None else UTC_MS.validate_python(ms)
+
     def houses(self) -> list[HouseRecord]:
         """Every scada heard from, with last-heard as a query over readings
         and layouts: the latest arrival of either."""

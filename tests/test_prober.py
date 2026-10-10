@@ -95,6 +95,45 @@ def test_three_failures_raise_once_and_a_success_resolves(
     assert mqtt.calls == 5
 
 
+def test_fleet_data_arriving_outranks_a_failing_probe(
+    settings: AlerterSettings, store: Store
+) -> None:
+    """The field case of 2026-10-09: the prober's own login refused on the
+    AMQPS door for hours while every house's data flowed through it."""
+    amqp = Flaky(fail=10)
+    p = prober(settings, store, amqp, Flaky())
+    now = p.now  # type: ignore[attr-defined]
+    heard = settings.heard_period_s * 1000
+    # Arrivals inside the last heard period: the door works, no raise.
+    for _ in range(4):
+        now[0] += 60_000
+        store.record_arrival(
+            "d1.isone.me.versant.keene.beech.scada", received_ms=now[0] - heard // 2
+        )
+        assert p.tick() == []
+    assert open_broker_alerts(store) == []
+    # Arrivals gone stale for a full heard period: the failures count.
+    now[0] += 60_000 + heard
+    assert p.tick() == []
+    now[0] += 60_000
+    assert p.tick() == []
+    now[0] += 60_000
+    (firing,) = p.tick()
+    assert firing.state is AlertState.Firing and firing.subject == AMQP
+    assert open_broker_alerts(store) == [AMQP]
+    # Fresh arrivals again while the probe still fails: the fleet is heard,
+    # so the open alert resolves and says so.
+    now[0] += 60_000
+    store.record_arrival(
+        "d1.isone.me.versant.keene.beech.scada", received_ms=now[0] - 1_000
+    )
+    (resolved,) = p.tick()
+    assert resolved.state is AlertState.Resolved
+    assert resolved.alert_id == firing.alert_id
+    assert "heard" in resolved.summary
+    assert open_broker_alerts(store) == []
+
+
 def test_each_door_is_its_own_alert(settings: AlerterSettings, store: Store) -> None:
     p = prober(settings, store, Flaky(fail=3), Flaky(fail=3))
     p.tick()
