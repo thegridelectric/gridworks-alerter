@@ -10,7 +10,9 @@ queue, publish one message to it through the default exchange, receive
 it back; a connect-only check passes through a memory or disk alarm that
 blocks every publisher) and an MQTT connect on the TLS listener the
 scadas use (TLS handshake, CONNECT, CONNACK; any CONNACK means the MQTT
-plugin and its listener answered). The management API is not checked: it
+plugin and its listener answered). Both doors present the prober's cert
+and one instance id, the AMQPS claims' and the MQTT client id, so the
+gate leases the prober once. The management API is not checked: it
 is a third listener that can be up while both doors are shut.
 
 A door that fails `failures_to_raise` probes running raises one
@@ -58,9 +60,6 @@ from gwalerter.store import Store
 
 CONNECT_TIMEOUT_S = 10.0
 UTC_MS = TypeAdapter(UTCMilliseconds)
-# MQTT 3.1.1 CONNECT with a fixed client id and no credentials; the
-# broker answers CONNACK (accepted or refused) if its MQTT door is open.
-MQTT_CLIENT_ID = b"gwalerter-probe"
 MQTT_CONNACK = 0x20
 
 
@@ -156,14 +155,20 @@ def mqtt_ssl_context(tls: RabbitTls | None) -> ssl.SSLContext:
     return ctx
 
 
-def mqtt_connack(host: str, port: int, *, context: ssl.SSLContext | None) -> None:
+def mqtt_connack(
+    host: str, port: int, *, client_id: str, context: ssl.SSLContext | None
+) -> None:
     """TLS handshake with `context` (None: the dev broker's plain listener),
-    MQTT CONNECT, read a CONNACK. Refused credentials are a CONNACK too:
-    the door is open."""
+    MQTT 3.1.1 CONNECT with `client_id` and no username or password, read
+    a CONNACK. Refused credentials are a CONNACK too: the door is open.
+    The client id is the prober's instance id: the gate reads an MQTT
+    client id as the instance id, so the prober is one instance on both
+    doors under one lease."""
     with socket.create_connection((host, port), timeout=CONNECT_TIMEOUT_S) as raw:
         sock = context.wrap_socket(raw, server_hostname=host) if context else raw
         with sock:
-            payload = struct.pack("!H", len(MQTT_CLIENT_ID)) + MQTT_CLIENT_ID
+            cid = client_id.encode()
+            payload = struct.pack("!H", len(cid)) + cid
             # Variable header: protocol name "MQTT", level 4, clean session,
             # keep-alive 10 s.
             variable = struct.pack("!H4sBBH", 4, b"MQTT", 4, 0x02, 10)
@@ -179,9 +184,8 @@ def doors(settings: AlerterSettings) -> list[Door]:
     the process's life, so each probe over the gate is the same instance
     reconnecting under its own lease, never a supersession."""
     client = settings.probe_amqp
-    claims = (
-        probe_claims(settings, str(uuid.uuid4())) if client.tls is not None else None
-    )
+    instance_id = str(uuid.uuid4())
+    claims = probe_claims(settings, instance_id) if client.tls is not None else None
     context = mqtt_ssl_context(client.tls) if settings.probe_mqtt_tls else None
     return [
         Door(
@@ -191,7 +195,10 @@ def doors(settings: AlerterSettings) -> list[Door]:
         Door(
             name=f"{settings.probe_mqtt_host}:{settings.probe_mqtt_port}",
             check=lambda: mqtt_connack(
-                settings.probe_mqtt_host, settings.probe_mqtt_port, context=context
+                settings.probe_mqtt_host,
+                settings.probe_mqtt_port,
+                client_id=instance_id,
+                context=context,
             ),
         ),
     ]
