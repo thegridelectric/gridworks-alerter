@@ -51,9 +51,11 @@ class AlerterSettings(ServiceSettings):
     # NoData: a tracked house with no arrival for this long is silent.
     no_data_silence_s: int = 600
 
-    # The NoData summary's cause: how often a house's scada and LTN are
-    # each expected to be heard from, whatever the message. A party is
+    # How often a house's scada and LTN are each expected to be heard
+    # from, whatever the message. The NoData summary's cause: a party is
     # "speaking" when heard inside this period times the Nyquist factor.
+    # The prober: anything heard from the fleet inside this period means
+    # the broker carries its data, and no door is raised unreachable.
     heard_period_s: int = 60
 
     # How often the detectors re-evaluate their rules.

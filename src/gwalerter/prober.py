@@ -19,6 +19,16 @@ host:port) into the store; the first success resolves it. The tap pages
 the record on its reconcile pass from the store, with no broker
 involved. A network fault at the alerts box looks the same as a broker
 fault from there, and the summary says so.
+
+The fleet being heard outranks the probe. The store's arrivals table is
+what the actor hears through the broker; while anything has arrived
+inside the last `heard_period_s`, the broker is carrying the fleet's
+data whatever the probe says, so a failing door is logged but not
+counted, nothing is raised, and an open BrokerUnreachable resolves;
+the failures that raise are the ones running while the fleet is
+unheard. A probe
+failure with the fleet heard is the prober's own (its login, its cert,
+the box's network), never the fleet's.
 """
 
 from __future__ import annotations
@@ -211,6 +221,7 @@ class Prober:
         self.clock_ms = clock_ms
         self.src: LeftRightDot = settings.service_alias
         self.failures_to_raise = settings.probe_failures_to_raise
+        self.heard_ms = settings.heard_period_s * 1000
         self.failures: dict[str, int] = {door.name: 0 for door in doors}
         self.stop_event = threading.Event()
         self.logger = logging.getLogger(__name__)
@@ -225,9 +236,12 @@ class Prober:
     def tick(self) -> list[Alert]:
         """Probe every door once; raise on the door that has failed
         `failures_to_raise` probes running and has no alert open, resolve on
-        the first success of a door with one open. Records returned are
-        already in the store."""
+        the first success of a door with one open. The fleet heard inside
+        the last `heard_period_s` resolves an open alert and raises none,
+        whatever the probe found. Records returned are already in the
+        store."""
         now_ms = self.clock_ms()
+        heard = self.fleet_heard(now_ms)
         records: list[Alert] = []
         for door in self.doors:
             outcome = self.probe(door)
@@ -236,6 +250,16 @@ class Prober:
                 self.failures[door.name] = 0
                 if open_alert is not None:
                     records.append(self.resolve(door, open_alert, now_ms))
+                continue
+            if heard:
+                self.failures[door.name] = 0
+                self.logger.warning(
+                    "%s failed, fleet heard: %s", door.name, outcome.reason
+                )
+                if open_alert is not None:
+                    records.append(
+                        self.resolve(door, open_alert, now_ms, fleet_heard=True)
+                    )
                 continue
             self.failures[door.name] += 1
             self.logger.warning(
@@ -250,6 +274,12 @@ class Prober:
             ):
                 records.append(self.raise_alert(door, outcome, now_ms))
         return records
+
+    def fleet_heard(self, now_ms: UTCMilliseconds) -> bool:
+        """Whether anything arrived from any alias inside the last heard
+        period: the broker is carrying the fleet's data."""
+        latest = self.store.latest_arrival()
+        return latest is not None and now_ms - latest <= self.heard_ms
 
     def raise_alert(
         self, door: Door, outcome: Outcome, now_ms: UTCMilliseconds
@@ -274,7 +304,20 @@ class Prober:
         )
         return alert
 
-    def resolve(self, door: Door, open_alert: Alert, now_ms: UTCMilliseconds) -> Alert:
+    def resolve(
+        self,
+        door: Door,
+        open_alert: Alert,
+        now_ms: UTCMilliseconds,
+        *,
+        fleet_heard: bool = False,
+    ) -> Alert:
+        summary = (
+            f"Fleet data heard through the broker at {iso_utc(now_ms)} while "
+            f"door {door.name} refuses the probe: the fault is the prober's own"
+            if fleet_heard
+            else f"Broker door {door.name} answered again at {iso_utc(now_ms)}"
+        )
         resolved = Alert(
             src=self.src,
             category=AlertCategory.PlatformService,
@@ -284,7 +327,7 @@ class Prober:
             alert_id=open_alert.alert_id,
             raised_ms=open_alert.raised_ms,
             resolved_ms=now_ms,
-            summary=f"Broker door {door.name} answered again at {iso_utc(now_ms)}",
+            summary=summary,
             evidence=[],
         )
         self.store.clear_alert(resolved)
