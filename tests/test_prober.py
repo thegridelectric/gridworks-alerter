@@ -8,12 +8,14 @@ from __future__ import annotations
 import ssl
 import subprocess
 import time
+import uuid
 from pathlib import Path
 
 import pika
 import pytest
 from gwbase.config.rabbit_settings import RabbitTls
 
+from gwalerter import prober as prober_module
 from gwalerter.config import AlerterSettings
 from gwalerter.prober import (
     Door,
@@ -200,7 +202,7 @@ def test_both_doors_answer_on_the_dev_broker(settings: AlerterSettings) -> None:
     # The actor's broker client carries the dev broker's real credentials;
     # the probe block in conftest is a placeholder.
     amqp_round_trip(settings.rabbit, claims=None)
-    mqtt_connack("localhost", 1885, context=None)
+    mqtt_connack("localhost", 1885, client_id=str(uuid.uuid4()), context=None)
 
 
 def test_probe_claims_are_the_probers_own(settings: AlerterSettings) -> None:
@@ -231,9 +233,43 @@ def test_password_probe_has_no_claims_and_a_tls_probe_needs_them(
         amqp_parameters(tls, claims=None)
 
 
+def test_both_doors_present_one_instance_id(
+    settings: AlerterSettings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The MQTT CONNECT's client id is the prober's instance id, the one its
+    AMQPS claims carry, so the gate sees one instance on both doors and
+    leases it once (a client id that is not a uuid4 is refused as
+    malformed, and a second uuid4 would supersede the first)."""
+    seen: dict[str, str] = {}
+    tls = settings.probe_amqp.model_copy(
+        update={
+            "url": settings.probe_amqp.url,
+            "tls": {"ca_cert_path": "/x", "cert_path": "/y", "private_key_path": "/z"},
+        }
+    )
+    monkeypatch.setattr(settings, "probe_amqp", tls)
+    monkeypatch.setattr(
+        prober_module, "mqtt_ssl_context", lambda tls: ssl.create_default_context()
+    )
+    monkeypatch.setattr(
+        prober_module,
+        "amqp_round_trip",
+        lambda client, claims: seen.__setitem__("amqp", claims.instance_id),
+    )
+    monkeypatch.setattr(
+        prober_module,
+        "mqtt_connack",
+        lambda host, port, *, client_id, context: seen.__setitem__("mqtt", client_id),
+    )
+    for door in prober_module.doors(settings):
+        door.check()
+    assert seen["amqp"] == seen["mqtt"]
+    assert uuid.UUID(seen["mqtt"]).version == 4
+
+
 def test_a_shut_door_fails() -> None:
     with pytest.raises(OSError):
-        mqtt_connack("localhost", 1, context=None)
+        mqtt_connack("localhost", 1, client_id=str(uuid.uuid4()), context=None)
 
 
 def test_mqtt_door_trusts_the_probe_ca(tmp_path: Path) -> None:
