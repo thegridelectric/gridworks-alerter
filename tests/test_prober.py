@@ -5,8 +5,10 @@ checks answer against the dev broker."""
 
 from __future__ import annotations
 
+import socket
 import ssl
 import subprocess
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -265,6 +267,39 @@ def test_both_doors_present_one_instance_id(
         door.check()
     assert seen["amqp"] == seen["mqtt"]
     assert uuid.UUID(seen["mqtt"]).version == 4
+
+
+def connack_server(code: int) -> tuple[threading.Thread, int]:
+    """A one-shot MQTT listener on a free port that answers any CONNECT
+    with a CONNACK carrying `code`."""
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+
+    def serve() -> None:
+        conn, _ = srv.accept()
+        with conn:
+            conn.recv(1024)
+            conn.sendall(bytes([0x20, 2, 0, code]))
+        srv.close()
+
+    t = threading.Thread(target=serve, daemon=True)
+    t.start()
+    return t, srv.getsockname()[1]
+
+
+def test_an_accepted_connack_is_the_open_door() -> None:
+    _, port = connack_server(0)
+    mqtt_connack("127.0.0.1", port, client_id=str(uuid.uuid4()), context=None)
+
+
+@pytest.mark.parametrize("code", [2, 5])
+def test_a_refused_connack_is_a_shut_door(code: int) -> None:
+    """The gate refusing the prober (FIS down, the gate broken, the lease
+    gone) is what refuses every scada: a refused CONNACK fails the probe."""
+    _, port = connack_server(code)
+    with pytest.raises(RuntimeError, match="refused"):
+        mqtt_connack("127.0.0.1", port, client_id=str(uuid.uuid4()), context=None)
 
 
 def test_a_shut_door_fails() -> None:

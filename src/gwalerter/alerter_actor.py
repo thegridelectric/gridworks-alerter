@@ -3,10 +3,11 @@
 An Orchestrator-tier actor of transport class Alerter: it broadcasts its
 alert words on its own mic exchange, and it also taps the audit exchange
 the way JournalKeeper does (bind everything, keep the tracked types off
-the parsed envelope), unwraps each `gw` body,
-decodes it through the vendored snapshot, and hands the typed instance
-to the store: readings and layouts from the scadas, the registry's forest
-broadcasts into the projection. A scada heard from that reports for no
+the parsed envelope), decodes each body through the vendored snapshot,
+and hands the typed instance to the store: readings and layouts from the
+scadas, the registry's forest broadcasts into the projection. The body
+is the bare sema type whatever the routing category: gwbase opens a
+`gw` envelope before `process_message` runs. A scada heard from that reports for no
 tracked house is logged once per boot.
 
 The detectors run on their own thread at `detector_tick_s`, only while
@@ -30,9 +31,9 @@ from collections.abc import Callable
 
 from gwbase.actor_base import OnSendMessageDiagnostic
 from gwbase.orchestrator import Orchestrator
+from gwbase.sema.types.gridworks_header import GridworksHeader
 from gwbase.topology import EAR_EXCHANGE
 from gwbase.transport_encoding import RoutingEnvelope, TransportClass
-from gwbase.wrapped import unwrap_bytes
 
 from gwalerter.config import AlerterSettings
 from gwalerter.no_data import NoDataRule
@@ -159,15 +160,20 @@ class AlerterActor(Orchestrator):
                 "%s %s not sent: %s", word.type_name, word.alert_id, diagnostic.value
             )
 
-    def process_message(self, *, envelope: RoutingEnvelope, body: bytes) -> None:
+    def process_message(
+        self,
+        *,
+        envelope: RoutingEnvelope,
+        body: bytes,
+        header: GridworksHeader | None,  # noqa: ARG002 -- the header is not read
+    ) -> None:
         received_ms = self.clock_ms()
         if self.store.under_roots(envelope.from_alias):
             self.store.record_arrival(envelope.from_alias, received_ms=received_ms)
         if envelope.type_name not in TRACKED_TYPES:
             return
         try:
-            _header, payload = unwrap_bytes(body)
-            message = self.codec.from_dict(payload, auto_upgrade=False)
+            message = self.codec.from_dict(json.loads(body), auto_upgrade=False)
         except Exception as e:  # noqa: BLE001 -- the live path keeps running
             self.logger.error(
                 "Dropped %s from %s: %r", envelope.type_name, envelope.from_alias, e

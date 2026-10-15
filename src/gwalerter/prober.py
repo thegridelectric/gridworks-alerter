@@ -9,8 +9,9 @@ each: an AMQPS round trip (connect, declare an exclusive auto-delete
 queue, publish one message to it through the default exchange, receive
 it back; a connect-only check passes through a memory or disk alarm that
 blocks every publisher) and an MQTT connect on the TLS listener the
-scadas use (TLS handshake, CONNECT, CONNACK; any CONNACK means the MQTT
-plugin and its listener answered). Both doors present the prober's cert
+scadas use (TLS handshake, CONNECT, an accepted CONNACK; a refusal is
+the door shut, since what refuses the prober at the gate refuses every
+scada). Both doors present the prober's cert
 and one instance id, the AMQPS claims' and the MQTT client id, so the
 gate leases the prober once. The management API is not checked: it
 is a third listener that can be up while both doors are shut.
@@ -160,10 +161,12 @@ def mqtt_connack(
 ) -> None:
     """TLS handshake with `context` (None: the dev broker's plain listener),
     MQTT 3.1.1 CONNECT with `client_id` and no username or password, read
-    a CONNACK. Refused credentials are a CONNACK too: the door is open.
-    The client id is the prober's instance id: the gate reads an MQTT
-    client id as the instance id, so the prober is one instance on both
-    doors under one lease."""
+    a CONNACK and require it accepted (return code 0). A refused CONNACK
+    is the door shut: the gate refusing the prober (FIS down, the gate
+    broken, the lease gone) is what refuses every scada. The client id is
+    the prober's instance id: the gate reads an MQTT client id as the
+    instance id, so the prober is one instance on both doors under one
+    lease."""
     with socket.create_connection((host, port), timeout=CONNECT_TIMEOUT_S) as raw:
         sock = context.wrap_socket(raw, server_hostname=host) if context else raw
         with sock:
@@ -177,6 +180,8 @@ def mqtt_connack(
             head = sock.recv(4)
             if len(head) < 4 or head[0] != MQTT_CONNACK:
                 raise RuntimeError(f"no CONNACK (got {head.hex()})")
+            if head[3] != 0:
+                raise RuntimeError(f"CONNACK refused (return code {head[3]})")
 
 
 def doors(settings: AlerterSettings) -> list[Door]:
