@@ -12,7 +12,8 @@ from types import SimpleNamespace
 import pytest
 from gwbase.actor_base import OnSendMessageDiagnostic
 
-from gwalerter.no_data import CAUSE_CLAUSES, NYQUIST, NoDataRule, iso_utc
+from gwalerter.duration import minutes
+from gwalerter.no_data import CAUSE_CLAUSES, NYQUIST, NoDataRule, summary_cause
 from gwalerter.sema.base import SemaError
 from gwalerter.sema.codec import default_codec
 from gwalerter.sema.enums import (
@@ -110,6 +111,10 @@ def test_arrival_resolves_with_the_arrival_as_evidence(store: Store) -> None:
     assert resolved.resolved_ms == arrival
     assert resolved.evidence == report.report.channel_reading_list
     assert open_no_data(store) is None
+    assert (
+        resolved.summary
+        == f"data again after {minutes(SILENCE_MS + 1_000)} ({HOUSE}.ta)"
+    )
     # A second arrival has nothing to resolve; a new silence is a new alert.
     assert r.on_arrival(report.src, arrival_ms=arrival + 1, evidence=[]) is None
     (again,) = r.evaluate(arrival + SILENCE_MS)
@@ -185,7 +190,7 @@ def test_no_data_holds_while_the_broker_is_down_and_refloors_after(
     assert r.evaluate(back + SILENCE_MS - 1) == []
     (alert,) = r.evaluate(back + SILENCE_MS)
     assert alert.kind is HouseAlertKind.NoData
-    assert f"since {iso_utc(back)}" in alert.summary
+    assert alert.summary == f"scada silent for {minutes(SILENCE_MS)} ({HOUSE}.ta)"
 
 
 def test_an_open_no_data_survives_the_broker_going_down(store: Store) -> None:
@@ -267,7 +272,7 @@ def test_resumed_hearing_gives_each_house_one_threshold(settings, store: Store) 
     (body,) = sent
     raised = default_codec.from_dict(json.loads(body), expect=Alert)
     assert raised.kind is HouseAlertKind.NoData
-    assert f"since {iso_utc(resumed)}" in raised.summary
+    assert raised.summary == f"scada silent for {minutes(SILENCE_MS)} ({HOUSE}.ta)"
 
 
 def test_firing_and_resolved_round_trip_under_the_axioms(store: Store) -> None:
@@ -298,19 +303,21 @@ def test_firing_and_resolved_round_trip_under_the_axioms(store: Store) -> None:
 
 
 @pytest.mark.parametrize(
-    ("scada", "ltn", "clause"),
+    ("scada", "ltn", "cause"),
     [
-        (False, False, CAUSE_CLAUSES["both_silent"]),
-        (False, True, CAUSE_CLAUSES["scada_silent"]),
-        (True, False, CAUSE_CLAUSES["ltn_silent"]),
-        (True, True, CAUSE_CLAUSES["both_speaking"]),
+        (False, False, "scada_silent"),
+        (False, True, "scada_silent"),
+        (True, False, "ltn_silent"),
+        (True, True, "both_speaking"),
     ],
 )
 def test_the_summary_names_the_cause(
-    store: Store, scada: bool, ltn: bool, clause: str
+    store: Store, scada: bool, ltn: bool, cause: str
 ) -> None:
     """Each party heard at all inside the window: the clause reads which
-    are missing. Envelope arrivals, no body decoded, no type looked at."""
+    is missing, with the silence in minutes and the alias last. A silent
+    scada reads the same whether or not the LTN is silent too. Envelope
+    arrivals, no body decoded, no type looked at."""
     tracked_spruce(store)
     now = T0 + SILENCE_MS
     if scada:
@@ -318,7 +325,20 @@ def test_the_summary_names_the_cause(
     if ltn:
         store.record_arrival(LTN, received_ms=now - 60_000)
     (alert,) = rule(store).evaluate(now)
-    assert alert.summary == f"No data from {HOUSE}.ta since {iso_utc(T0)} ({clause})"
+    clause = CAUSE_CLAUSES[cause].format(d=minutes(SILENCE_MS))
+    assert alert.summary == f"{clause} ({HOUSE}.ta)"
+    assert summary_cause(alert.summary) == cause
+
+
+def test_the_ltn_line_teaches_why_the_scada_is_quiet(store: Store) -> None:
+    tracked_spruce(store)
+    now = T0 + SILENCE_MS
+    store.record_arrival(SCADA, received_ms=now - 30_000)
+    (alert,) = rule(store).evaluate(now)
+    assert alert.summary == (
+        f"ltn silent for {minutes(SILENCE_MS)}; scada does not send up reports "
+        f"with no ltn ({HOUSE}.ta)"
+    )
 
 
 def test_a_party_outside_the_window_is_silent(store: Store) -> None:
@@ -329,27 +349,33 @@ def test_a_party_outside_the_window_is_silent(store: Store) -> None:
     store.record_arrival(SCADA, received_ms=now - HEARD_FRESH_MS)
     store.record_arrival(LTN, received_ms=now - 60_000)
     (alert,) = rule(store).evaluate(now)
-    assert alert.summary.endswith(f"({CAUSE_CLAUSES['scada_silent']})")
+    assert summary_cause(alert.summary) == "scada_silent"
 
 
 def test_the_open_alert_summary_follows_the_cause(store: Store) -> None:
-    """The clause is re-read on every tick: when it changes, the open
+    """The cause is re-read on every tick: when it changes, the open
     alert's Firing record is rewritten in the store and returned again
-    under the same AlertId, and nothing new is raised."""
+    under the same AlertId, and nothing new is raised. The LTN joining
+    or leaving the silence while the scada stays silent is not a change."""
     tracked_spruce(store)
     r = rule(store)
     now = T0 + SILENCE_MS
     (firing,) = r.evaluate(now)
-    assert firing.summary.endswith(f"({CAUSE_CLAUSES['both_silent']})")
+    assert summary_cause(firing.summary) == "scada_silent"
     assert r.evaluate(now + 10_000) == []
     store.record_arrival(LTN, received_ms=now + 15_000)
-    (updated,) = r.evaluate(now + 20_000)
+    assert r.evaluate(now + 20_000) == []  # still the scada's silence
+    # The LTN falls out of its fresh window and the scada speaks: the
+    # cause is now the LTN's silence.
+    later = now + 15_000 + HEARD_FRESH_MS + 10_000
+    store.record_arrival(SCADA, received_ms=later - 5_000)
+    (updated,) = r.evaluate(later)
     assert updated.alert_id == firing.alert_id
     assert updated.state is AlertState.Firing
     assert updated.raised_ms == firing.raised_ms
-    assert updated.summary.endswith(f"({CAUSE_CLAUSES['scada_silent']})")
+    assert summary_cause(updated.summary) == "ltn_silent"
     assert open_no_data(store) == updated
-    assert r.evaluate(now + 30_000) == []
+    assert r.evaluate(later + 10_000) == []
 
 
 def test_actor_counts_every_envelope_under_the_roots(settings, store: Store) -> None:

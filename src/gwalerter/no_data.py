@@ -23,8 +23,8 @@ four clauses are in `CAUSE_CLAUSES`, re-read on every tick.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
+from gwalerter.duration import minutes
 from gwalerter.sema.enums import (
     AlertCategory,
     AlertState,
@@ -43,16 +43,23 @@ NYQUIST = 2.1
 
 # A party is "speaking" when anything arrived from it inside the window,
 # whatever the message; a house is its LTN and its scada.
+# The Summary's clause by cause, `{d}` the silence in minutes; the alias
+# follows in parens. A silent scada reads the same whether or not the LTN
+# is silent too: the page is about the scada either way.
 CAUSE_CLAUSES: dict[str, str] = {
-    "both_silent": "scada and ltn both silent",
-    "scada_silent": "scada silent; ltn speaking",
-    "ltn_silent": "scada speaking; ltn silent",
-    "both_speaking": "scada and ltn both speaking; reports not arriving",
+    "scada_silent": "scada silent for {d}",
+    "ltn_silent": "ltn silent for {d}; scada does not send up reports with no ltn",
+    "both_speaking": "no reports for {d}, scada and ltn both speaking",
 }
 
 
-def iso_utc(ms: UTCMilliseconds) -> str:
-    return datetime.fromtimestamp(ms / 1000, tz=UTC).strftime("%Y-%m-%d %H:%M:%SZ")
+def summary_cause(summary: str) -> str | None:
+    """The cause a NoData Summary was written for, read off its opening
+    words; None for a Summary no clause produced."""
+    for cause, template in CAUSE_CLAUSES.items():
+        if summary.startswith(template.split("{d}")[0]):
+            return cause
+    return None
 
 
 class NoDataRule:
@@ -95,17 +102,17 @@ class NoDataRule:
             last = max(heard.get(house.alias, 0), self.heard_floor_ms)
             if now_ms - last < self.silence_ms:
                 continue
-            clause = self.cause(house.alias, now_ms)
+            cause = self.cause(house.alias, now_ms)
             open_alert = self.open_no_data(house.alias)
             if open_alert is not None:
-                if open_alert.summary.endswith(f"({clause})"):
+                if summary_cause(open_alert.summary) == cause:
                     continue
                 updated = self.firing(
                     house.alias,
                     alert_id=open_alert.alert_id,
                     raised_ms=open_alert.raised_ms,
-                    since=iso_utc(last),
-                    clause=clause,
+                    silent_ms=now_ms - last,
+                    cause=cause,
                 )
                 self.store.update_alert(updated)
                 raised.append(updated)
@@ -114,8 +121,8 @@ class NoDataRule:
                 house.alias,
                 alert_id=str(uuid.uuid4()),
                 raised_ms=now_ms,
-                since=iso_utc(last),
-                clause=clause,
+                silent_ms=now_ms - last,
+                cause=cause,
             )
             self.store.raise_alert(alert)
             raised.append(alert)
@@ -127,9 +134,10 @@ class NoDataRule:
         *,
         alert_id: str,
         raised_ms: UTCMilliseconds,
-        since: str,
-        clause: str,
+        silent_ms: int,
+        cause: str,
     ) -> Alert:
+        clause = CAUSE_CLAUSES[cause].format(d=minutes(silent_ms))
         return Alert(
             src=self.src,
             category=AlertCategory.House,
@@ -138,13 +146,14 @@ class NoDataRule:
             about_g_node_alias=house_alias,
             alert_id=alert_id,
             raised_ms=raised_ms,
-            summary=f"No data from {house_alias} since {since} ({clause})",
+            summary=f"{clause} ({house_alias})",
             evidence=[],
         )
 
     def cause(self, house_alias: LeftRightDot, now_ms: UTCMilliseconds) -> str:
-        """Which of the house's two parties are speaking now: the LTN is the
-        terminal asset's parent alias, the scada its `.scada` sibling."""
+        """Which of the house's two parties are speaking now, as a
+        `CAUSE_CLAUSES` key: the LTN is the terminal asset's parent alias,
+        the scada its `.scada` sibling."""
         ltn = parent_alias(house_alias)
         scada = ltn + SCADA_SUFFIX
 
@@ -153,14 +162,12 @@ class NoDataRule:
             return last is not None and now_ms - last < self.heard_fresh_ms
 
         match speaking(scada), speaking(ltn):
-            case False, False:
-                return CAUSE_CLAUSES["both_silent"]
-            case False, True:
-                return CAUSE_CLAUSES["scada_silent"]
+            case False, _:
+                return "scada_silent"
             case True, False:
-                return CAUSE_CLAUSES["ltn_silent"]
+                return "ltn_silent"
             case _:
-                return CAUSE_CLAUSES["both_speaking"]
+                return "both_speaking"
 
     def on_arrival(
         self,
@@ -187,7 +194,12 @@ class NoDataRule:
             alert_id=open_alert.alert_id,
             raised_ms=open_alert.raised_ms,
             resolved_ms=arrival_ms,
-            summary=f"Data from {house.alias} again at {iso_utc(arrival_ms)}",
+            # Since the last data: the alert was raised one silence after it.
+            summary=(
+                f"data again after "
+                f"{minutes(arrival_ms - open_alert.raised_ms + self.silence_ms)} "
+                f"({house.alias})"
+            ),
             evidence=evidence,
         )
         self.store.clear_alert(resolved)

@@ -16,6 +16,7 @@ import httpx
 import pytest
 
 from gwalerter.config import AlerterSettings
+from gwalerter.duration import minutes
 from gwalerter.sema.enums import (
     AlertCategory,
     AlertState,
@@ -123,7 +124,7 @@ def test_firing_maps_to_a_create_word_aliased_by_its_id() -> None:
     word = firing()
     create = to_opsgenie(word, display_name="Spruce (Millinocket)", team_id=TEAM)
     assert create.alias == word.alert_id
-    assert create.message == "[spruce] No data from spruce"
+    assert create.message == "[Spruce] No data from spruce"
     assert create.entity == f"{HOUSE}.ta"
     assert create.source == "d1.alerts"
     assert create.tags == ["House", "NoData"]
@@ -182,8 +183,20 @@ def test_short_name_is_the_segment_before_ta() -> None:
     assert house_short_name("w.isone.vt.gmp.burlington.oak.ta") == "oak"
 
 
-def tap(settings: AlerterSettings, store: Store, og: RecordingOpsgenie, clock) -> Tap:
-    return Tap(settings=settings, store=store, opsgenie=og.client(), clock=clock)
+def tap(
+    settings: AlerterSettings,
+    store: Store,
+    og: RecordingOpsgenie,
+    clock,
+    wall_ms=lambda: T0 + 60_000,
+) -> Tap:
+    return Tap(
+        settings=settings,
+        store=store,
+        opsgenie=og.client(),
+        clock=clock,
+        wall_ms=wall_ms,
+    )
 
 
 def test_firing_creates_and_resolved_closes(
@@ -332,6 +345,8 @@ def test_silencing_a_paged_house_closes_its_page(
     store.replace_silences(silences(f"{HOUSE}.ta"))
     t.reconcile()
     assert og.verbs()[-1] == ("close", word.alert_id)
-    assert "silenced" in og.requests[-1].body["note"].lower()
+    assert og.requests[-1].body["note"] == (
+        f"Silenced after {minutes(60_000)} ({HOUSE}.ta)"
+    )
     assert t.told == {}
     assert [a.alert_id for a in store.open_alerts()] == [word.alert_id]
