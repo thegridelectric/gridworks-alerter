@@ -1,9 +1,14 @@
 """dispatch_message: tracked types reach the store, the rest are ignored,
-and a bad body is logged and dropped without stopping the actor."""
+and a bad body is logged and dropped without stopping the actor. A scada's
+report.event and layout.lite arrive `gw`-wrapped; the registry's
+g.node.forest arrives as a bare broadcast."""
 
 from __future__ import annotations
 
+import json
+
 from gwbase.transport_encoding import (
+    BroadcastRoutingEnvelope,
     TransportClass,
     WrappedRoutingEnvelope,
     parse_routing_key,
@@ -29,6 +34,18 @@ def wrapped(
     parsed = parse_routing_key(envelope.routing_key)
     assert isinstance(parsed, WrappedRoutingEnvelope)
     return parsed, body
+
+
+def broadcast(
+    type_name: str, payload: dict, src: str
+) -> tuple[BroadcastRoutingEnvelope, bytes]:
+    """A bare `rjb` broadcast: the body is the sema type itself."""
+    envelope = BroadcastRoutingEnvelope.from_classes(
+        type_name=type_name, from_alias=src, from_class=TransportClass.Supervisor
+    )
+    parsed = parse_routing_key(envelope.routing_key)
+    assert isinstance(parsed, BroadcastRoutingEnvelope)
+    return parsed, json.dumps(payload).encode()
 
 
 def actor(settings: AlerterSettings, store: Store) -> AlerterActor:
@@ -98,7 +115,7 @@ def test_forest_broadcast_reaches_the_projection(
     payload = forest(
         house_nodes(f"{FLEET_ROOT}.spruce"), [FLEET_ROOT], 1_800_000_000_000
     )
-    envelope, body = wrapped("g.node.forest", payload, src="d1.gnr")
+    envelope, body = broadcast("g.node.forest", payload, src="d1.gnr")
     actor(settings, store).dispatch_message(envelope=envelope, body=body)
     assert [h.alias for h in store.tracked_houses()] == [f"{FLEET_ROOT}.spruce.ta"]
 
