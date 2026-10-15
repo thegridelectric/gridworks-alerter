@@ -89,6 +89,21 @@ def test_layout_lite_reaches_the_store(settings: AlerterSettings, store: Store) 
     assert layout.from_g_node_alias == payload["FromGNodeAlias"]
 
 
+def test_layout_lite_011_is_stored_at_its_sent_version(
+    settings: AlerterSettings, store: Store
+) -> None:
+    """The fleet on main sends layout.lite 011; it is stored as sent and
+    counts as an arrival, like a report at an older version."""
+    payload = sample("layout.lite.011.json")
+    envelope, body = wrapped("layout.lite", payload)
+    actor(settings, store).dispatch_message(envelope=envelope, body=body)
+    layout = store.layout(payload["FromGNodeAlias"])
+    assert layout is not None
+    assert layout.from_g_node_alias == payload["FromGNodeAlias"]
+    (house,) = store.houses()
+    assert house.alias == payload["FromGNodeAlias"]
+
+
 def test_untracked_type_is_ignored(settings: AlerterSettings, store: Store) -> None:
     payload = sample("report.event.004.json")
     envelope, body = wrapped("report.event", payload)
