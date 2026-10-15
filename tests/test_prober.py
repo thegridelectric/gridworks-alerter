@@ -87,12 +87,14 @@ def test_three_failures_raise_once_and_a_success_resolves(
     assert firing.category is AlertCategory.PlatformService
     assert firing.kind is PlatformAlertKind.BrokerUnreachable
     assert firing.subject == AMQP and firing.about_g_node_alias is None
-    assert "3 probes" in firing.summary and "alerts box" in firing.summary
+    assert firing.summary.startswith(f"Broker door {AMQP} down ")
+    assert "3 probes failed: " in firing.summary
     assert open_broker_alerts(store) == [AMQP]
     assert p.tick() == []  # a fourth failure: still the one alert
     assert open_broker_alerts(store) == [AMQP]
     (resolved,) = p.tick()  # the fifth probe succeeds
     assert resolved.state is AlertState.Resolved
+    assert resolved.summary.startswith(f"Broker door {AMQP} up again after ")
     assert resolved.alert_id == firing.alert_id
     assert resolved.raised_ms == firing.raised_ms
     assert open_broker_alerts(store) == []
@@ -134,7 +136,10 @@ def test_fleet_data_arriving_outranks_a_failing_probe(
     (resolved,) = p.tick()
     assert resolved.state is AlertState.Resolved
     assert resolved.alert_id == firing.alert_id
-    assert "heard" in resolved.summary
+    assert resolved.summary.startswith("Fleet heard through the broker after ")
+    assert resolved.summary.endswith(
+        f"while door {AMQP} refuses the probe: prober fault"
+    )
     assert open_broker_alerts(store) == []
 
 

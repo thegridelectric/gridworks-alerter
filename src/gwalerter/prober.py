@@ -44,7 +44,6 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
-from datetime import UTC, datetime
 from typing import NamedTuple
 
 import pika
@@ -54,6 +53,7 @@ from gwbase.sema.types import FisConnectClaims
 from pydantic import TypeAdapter
 
 from gwalerter.config import AlerterSettings
+from gwalerter.duration import minutes
 from gwalerter.sema.enums import AlertCategory, AlertState, PlatformAlertKind
 from gwalerter.sema.property_format import LeftRightDot, UTCMilliseconds
 from gwalerter.sema.types import Alert
@@ -78,10 +78,6 @@ class Outcome(NamedTuple):
 
     ok: bool
     reason: str
-
-
-def iso_utc(ms: UTCMilliseconds) -> str:
-    return datetime.fromtimestamp(ms / 1000, tz=UTC).strftime("%Y-%m-%d %H:%M:%SZ")
 
 
 def probe_claims(settings: AlerterSettings, instance_id: str) -> FisConnectClaims:
@@ -233,6 +229,7 @@ class Prober:
         self.clock_ms = clock_ms
         self.src: LeftRightDot = settings.service_alias
         self.failures_to_raise = settings.probe_failures_to_raise
+        self.interval_ms = settings.probe_interval_s * 1000
         self.heard_ms = settings.heard_period_s * 1000
         self.failures: dict[str, int] = {door.name: 0 for door in doors}
         self.stop_event = threading.Event()
@@ -305,8 +302,9 @@ class Prober:
             alert_id=str(uuid.uuid4()),
             raised_ms=now_ms,
             summary=(
-                f"Broker door {door.name} failed {self.failures[door.name]} probes "
-                f"running from the alerts box; last: {outcome.reason}"
+                f"Broker door {door.name} down "
+                f"{minutes(self.failures[door.name] * self.interval_ms)}, "
+                f"{self.failures[door.name]} probes failed: {outcome.reason}"
             ),
             evidence=[],
         )
@@ -324,11 +322,16 @@ class Prober:
         *,
         fleet_heard: bool = False,
     ) -> Alert:
+        # Since the door first failed: the alert was raised
+        # `failures_to_raise` probes after it.
+        down = minutes(
+            now_ms - open_alert.raised_ms + self.failures_to_raise * self.interval_ms
+        )
         summary = (
-            f"Fleet data heard through the broker at {iso_utc(now_ms)} while "
-            f"door {door.name} refuses the probe: the fault is the prober's own"
+            f"Fleet heard through the broker after {down} while door {door.name} "
+            "refuses the probe: prober fault"
             if fleet_heard
-            else f"Broker door {door.name} answered again at {iso_utc(now_ms)}"
+            else f"Broker door {door.name} up again after {down}"
         )
         resolved = Alert(
             src=self.src,

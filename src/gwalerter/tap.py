@@ -31,6 +31,7 @@ from collections.abc import Callable
 import httpx
 
 from gwalerter.config import AlerterSettings
+from gwalerter.duration import minutes
 from gwalerter.sema.enums import OpsgeniePriority
 from gwalerter.sema.types import Alert, OpsgenieAlertClose, OpsgenieAlertCreate
 from gwalerter.store import Store
@@ -55,7 +56,7 @@ def to_opsgenie(
     word: Alert, *, display_name: str | None, team_id: str
 ) -> OpsgenieAlertCreate:
     """Map one `Firing` record onto the create word. The headline is
-    `[house] summary` for a house alert, else the summary; `Entity` is
+    `[House] summary` for a house alert, else the summary; `Entity` is
     the full alias (or `Subject`, or `Src`), so two houses with one short
     name are two alerts; the named details carry the facts the headline
     cannot."""
@@ -65,7 +66,7 @@ def to_opsgenie(
     about = None
     if word.about_g_node_alias is not None:
         house = house_short_name(word.about_g_node_alias)
-        message = f"[{house}] {word.summary}"
+        message = f"[{house.capitalize()}] {word.summary}"
         about = word.about_g_node_alias
         if display_name:
             about = f"{about} ({display_name})"
@@ -95,8 +96,10 @@ def to_opsgenie_close(word: Alert, note: str | None = None) -> OpsgenieAlertClos
     )
 
 
-def silenced_note(word: Alert) -> str:
-    return f"Silenced: {word.about_g_node_alias} is on the alerter's silence list"
+def silenced_note(word: Alert, now_ms: int) -> str:
+    return (
+        f"Silenced after {minutes(now_ms - word.raised_ms)} ({word.about_g_node_alias})"
+    )
 
 
 def create_body(create: OpsgenieAlertCreate) -> dict[str, object]:
@@ -206,6 +209,7 @@ class Tap:
         store: Store,
         opsgenie: OpsgenieClient | None = None,
         clock: Callable[[], float] = time.monotonic,
+        wall_ms: Callable[[], int] = lambda: int(time.time() * 1000),
     ) -> None:
         self.settings = settings
         self.store = store
@@ -214,6 +218,7 @@ class Tap:
             api_key=settings.opsgenie_api_key.get_secret_value(),
         )
         self.clock = clock
+        self.wall_ms = wall_ms
         self.reconcile_s = settings.tap_reconcile_s
         # The alerts Opsgenie has been told are open, by AlertId.
         self.told: dict[str, Alert] = {}
@@ -252,7 +257,7 @@ class Tap:
         for alert_id, word in list(self.told.items()):
             if alert_id in store_open and alert_id not in paged:
                 self.logger.info("Reconcile: closing silenced %s", alert_id)
-                self.close(word, silenced_note(word))
+                self.close(word, silenced_note(word, self.wall_ms()))
             elif alert_id not in store_open:
                 self.logger.info("Reconcile: closing %s", alert_id)
                 self.close(self.store.resolved_record(alert_id) or word)
