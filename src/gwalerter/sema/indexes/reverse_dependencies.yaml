@@ -266,6 +266,7 @@ formats:
     - g.node.forest:002
     - g.node.gt:006
     - gw.alert:000
+    - gw.hack.alert.silences:000
     - gw.opsgenie.alert.close:000
     - gw.opsgenie.alert.create:000
     - layout.lite:011

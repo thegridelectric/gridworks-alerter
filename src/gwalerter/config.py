@@ -44,6 +44,14 @@ class AlerterSettings(ServiceSettings):
     # (`POST <gnr_url>/gnr/g-node-forest-request`). No default.
     gnr_url: str
 
+    # The silences file: one `gw.hack.alert.silences` instance, the
+    # houses whose open alerts the tap does not page, named by the sema
+    # file convention in the alerter's config folder
+    # (`<alias>-gw.hack.alert.silences-000.json`). Read at boot and on
+    # every detector tick; a missing file silences nothing. No default:
+    # each deployment names where its operators edit the list.
+    silences_path: Path
+
     # Readings older than this leave the store; every detector reads a
     # window shorter than it.
     readings_window_s: int = 4 * 3600

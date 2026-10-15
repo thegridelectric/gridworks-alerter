@@ -25,7 +25,14 @@ from pydantic import TypeAdapter
 from sqlalchemy import Engine, create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from gwalerter.db_models import AlertSql, ArrivalSql, GNodeSql, LayoutSql, ReadingSql
+from gwalerter.db_models import (
+    AlertSql,
+    ArrivalSql,
+    GNodeSql,
+    LayoutSql,
+    ReadingSql,
+    SilenceSql,
+)
 from gwalerter.sema.codec import default_codec
 from gwalerter.sema.enums import (
     AlertCategory,
@@ -44,6 +51,7 @@ from gwalerter.sema.types import (
     Alert,
     GNodeForest,
     GNodeGt,
+    HackAlertSilences,
     LayoutLite,
     ReportEvent,
 )
@@ -425,6 +433,27 @@ class Store:
             row.resolved_ms = resolved.resolved_ms
             row.resolved_payload = resolved.to_dict()
             s.commit()
+
+    # -- silences --------------------------------------------------------
+
+    def replace_silences(self, word: HackAlertSilences) -> bool:
+        """Make the table the snapshot's list; True when that changed it."""
+        wanted = set(word.silenced_g_node_aliases)
+        with self.lock, self.session() as s:
+            current = set(s.scalars(select(SilenceSql.alias)).all())
+            if current == wanted:
+                return False
+            s.execute(delete(SilenceSql))
+            for alias in sorted(wanted):
+                s.add(SilenceSql(alias=alias))
+            s.commit()
+        return True
+
+    def silenced_aliases(self) -> list[LeftRightDot]:
+        """The terminal assets whose open alerts the tap does not page."""
+        with self.lock, self.session() as s:
+            rows = s.scalars(select(SilenceSql.alias).order_by(SilenceSql.alias)).all()
+        return [LRD.validate_python(r) for r in rows]
 
     def open_alerts(self) -> list[Alert]:
         """The `Firing` record of every alert currently open, oldest first:

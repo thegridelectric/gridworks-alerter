@@ -254,6 +254,9 @@ def test_resumed_hearing_gives_each_house_one_threshold(settings, store: Store) 
     resumed = BOOT_MS + 3 * SILENCE_MS
     a.clock_ms = lambda: resumed
     a.local_rabbit_startup()
+    # Startup announces the silences snapshot, never an alert.
+    assert [json.loads(b)["TypeName"] for b in sent] == ["gw.hack.alert.silences"]
+    sent.clear()
     a.evaluate_detectors()
     assert sent == []
     a.clock_ms = lambda: resumed + SILENCE_MS - 1

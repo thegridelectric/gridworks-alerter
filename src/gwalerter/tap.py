@@ -86,10 +86,17 @@ def to_opsgenie(
     )
 
 
-def to_opsgenie_close(word: Alert) -> OpsgenieAlertClose:
-    """Map one `Resolved` record onto the close of its alias, with the
-    summary as the note a reader sees on the closed alert."""
-    return OpsgenieAlertClose(alias=word.alert_id, source=word.src, note=word.summary)
+def to_opsgenie_close(word: Alert, note: str | None = None) -> OpsgenieAlertClose:
+    """Map one record onto the close of its alias, with the summary (a
+    `Resolved` record's) or the given note as what a reader sees on the
+    closed alert."""
+    return OpsgenieAlertClose(
+        alias=word.alert_id, source=word.src, note=note or word.summary
+    )
+
+
+def silenced_note(word: Alert) -> str:
+    return f"Silenced: {word.about_g_node_alias} is on the alerter's silence list"
 
 
 def create_body(create: OpsgenieAlertCreate) -> dict[str, object]:
@@ -220,22 +227,33 @@ class Tap:
         if self.opsgenie.create(self.mapped(word)):
             self.told[word.alert_id] = word
 
-    def close(self, word: Alert) -> None:
-        if self.opsgenie.close(to_opsgenie_close(word)):
+    def close(self, word: Alert, note: str | None = None) -> None:
+        if self.opsgenie.close(to_opsgenie_close(word, note)):
             self.told.pop(word.alert_id, None)
 
     def reconcile(self) -> None:
-        """The store is the truth about which alerts are open: tell
-        Opsgenie of any open alert it has not taken, and close any it
-        holds that the store has resolved (a `Resolved` record missed on
-        the broker, or a close that failed)."""
+        """The store is the truth about which alerts are open and which
+        houses are silenced: tell Opsgenie of any open alert about an
+        unsilenced house it has not taken, close any it holds about a
+        house since silenced, and close any it holds that the store has
+        resolved (a `Resolved` record missed on the broker, or a close
+        that failed)."""
+        silenced = set(self.store.silenced_aliases())
         store_open = {word.alert_id: word for word in self.store.open_alerts()}
-        for alert_id, word in store_open.items():
+        paged = {
+            alert_id: word
+            for alert_id, word in store_open.items()
+            if word.about_g_node_alias not in silenced
+        }
+        for alert_id, word in paged.items():
             if alert_id not in self.told:
                 self.logger.info("Reconcile: creating %s", alert_id)
                 self.create(word)
         for alert_id, word in list(self.told.items()):
-            if alert_id not in store_open:
+            if alert_id in store_open and alert_id not in paged:
+                self.logger.info("Reconcile: closing silenced %s", alert_id)
+                self.close(word, silenced_note(word))
+            elif alert_id not in store_open:
                 self.logger.info("Reconcile: closing %s", alert_id)
                 self.close(self.store.resolved_record(alert_id) or word)
         self.last_reconcile = self.clock()

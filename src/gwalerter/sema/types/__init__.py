@@ -10,6 +10,7 @@ from gwalerter.sema.types.g_node_forest import GNodeForest
 from gwalerter.sema.types.g_node_forest_request import GNodeForestRequest
 from gwalerter.sema.types.g_node_gt import GNodeGt
 from gwalerter.sema.types.ha1_params import Ha1Params
+from gwalerter.sema.types.hack_alert_silences import HackAlertSilences
 from gwalerter.sema.types.i2c_multichannel_dt_relay_component_gt import (
     I2cMultichannelDtRelayComponentGt,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "GNodeForestRequest",
     "GNodeGt",
     "Ha1Params",
+    "HackAlertSilences",
     "I2cMultichannelDtRelayComponentGt",
     "LayoutLite",
     "MachineStates",

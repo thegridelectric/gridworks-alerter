@@ -22,7 +22,7 @@ from gwalerter.sema.enums import (
     HouseAlertKind,
     PlatformAlertKind,
 )
-from gwalerter.sema.types import Alert
+from gwalerter.sema.types import Alert, HackAlertSilences
 from gwalerter.store import Store
 from gwalerter.tap import (
     MESSAGE_MAX_CHARS,
@@ -292,3 +292,46 @@ def test_a_tap_with_no_broker_pages_what_the_store_holds(
         t.stop()
         thread.join(timeout=5)
     assert not thread.is_alive()
+
+
+def silences(*aliases: str) -> HackAlertSilences:
+    return HackAlertSilences(src="d1.alerts", silenced_g_node_aliases=list(aliases))
+
+
+def test_a_silenced_house_is_not_paged_until_lifted(
+    settings: AlerterSettings, store: Store
+) -> None:
+    """A house on the silence list keeps its open alert out of Opsgenie;
+    dropping it from the list pages the alert on the next pass. The store
+    still holds the alert open throughout."""
+    word = firing()
+    store.raise_alert(word)
+    store.replace_silences(silences(f"{HOUSE}.ta"))
+    og = RecordingOpsgenie()
+    t = tap(settings, store, og, lambda: 0.0)
+    t.reconcile()
+    assert og.verbs() == []
+    assert [a.alert_id for a in store.open_alerts()] == [word.alert_id]
+    store.replace_silences(silences())
+    t.reconcile()
+    assert og.verbs() == [("create", word.alert_id)]
+
+
+def test_silencing_a_paged_house_closes_its_page(
+    settings: AlerterSettings, store: Store
+) -> None:
+    """A page already open when the house is silenced is closed, with a
+    note saying the house is silenced, while the alert stays open in the
+    store; a service alert is never silenced by a house list."""
+    word = firing()
+    store.raise_alert(word)
+    og = RecordingOpsgenie()
+    t = tap(settings, store, og, lambda: 0.0)
+    t.reconcile()
+    assert og.verbs() == [("create", word.alert_id)]
+    store.replace_silences(silences(f"{HOUSE}.ta"))
+    t.reconcile()
+    assert og.verbs()[-1] == ("close", word.alert_id)
+    assert "silenced" in og.requests[-1].body["note"].lower()
+    assert t.told == {}
+    assert [a.alert_id for a in store.open_alerts()] == [word.alert_id]

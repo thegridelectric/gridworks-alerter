@@ -1,6 +1,6 @@
 metadata:
   registry_version: "1.0"
-  last_updated: "2026-10-08T21:00:00Z"
+  last_updated: "2026-10-15T15:30:00Z"
   maintainer: "gridworks-energy"
 
 formats:
@@ -638,6 +638,22 @@ types:
             - "utc.milliseconds"
             - "uuid4.str"
 
+  gw.hack.alert.silences:
+    latest_version: "000"
+    owner: gridworks-energy
+    versioning_strategy: "literal"
+    description: "The houses whose alerts an alerting service is not paging right now, as a whole-list snapshot."
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/types/gw.hack.alert.silences/000"
+        created: "2026-10-15T15:30:00Z"
+        status: "published"
+        summary: "Initial Sema version. Src and the list of silenced terminal asset aliases (axiom 1: every alias ends in .ta). A stop gap until an alert manager service owns silencing."
+        direct_dependencies:
+          structural:
+            - "left.right.dot"
+
   gw.opsgenie.alert:
     latest_version: "000"
     owner: gridworks-energy
@@ -739,7 +755,7 @@ types:
         schema_url: "https://schemas.electricity.works/types/ha1.params/006"
         created: "2026-02-25T14:23:00Z"
         status: "published"
-        summary: "- HpMaxKwEl: add as optional - HpMaxKwTh: required -> optional - HpTurnOnMinutes: add"
+        summary: "HpMaxKwEl replaces HpMaxKwTh, required; the five Cop fields required; HpTurnOnMinutes added, required (the shape every scada has published at this version)"
         direct_dependencies:
           structural: []
       "005":

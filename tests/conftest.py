@@ -34,6 +34,10 @@ def xdg_tmp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("GWALERTER_TIME_COORDINATOR_ALIAS", "d1.time")
     monkeypatch.setenv("GWALERTER_OPSGENIE_API_KEY", "key-0000")
     monkeypatch.setenv("GWALERTER_OPSGENIE_TEAM_ID", "team-0000")
+    monkeypatch.setenv(
+        "GWALERTER_SILENCES_PATH",
+        str(tmp_path / "d1.alerts-gw.hack.alert.silences-000.json"),
+    )
     return tmp_path
 
 

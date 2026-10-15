@@ -76,6 +76,15 @@ class ArrivalSql(Base):
     received_ms: Mapped[int] = mapped_column(BigInteger)
 
 
+class SilenceSql(Base):
+    """One row per terminal asset in the latest `gw.hack.alert.silences`
+    snapshot: the houses whose open alerts the tap does not page."""
+
+    __tablename__ = "silences"
+
+    alias: Mapped[str] = mapped_column(String, primary_key=True)
+
+
 class AlertSql(Base):
     """One `gw.alert` instance: its `Firing` record and, once it ends, its
     `Resolved` record with the same `AlertId`. The alerter's open-alert

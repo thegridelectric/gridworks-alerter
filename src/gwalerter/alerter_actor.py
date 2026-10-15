@@ -20,6 +20,13 @@ in the store, where the tap pages it, and broadcast on the mic exchange
 with the alias it is about as the radio channel: the house for a House
 alert, so a manager can bind by house, else the alerter's own alias.
 Arrivals resolve on the consumer thread, in dispatch.
+
+The silences file (`silences_path`, one `gw.hack.alert.silences`
+instance) is the list of houses whose open alerts the tap does not
+page. It is loaded into the store at init and re-read on every detector
+tick; a change replaces the store's list and the snapshot is broadcast
+on the mic exchange, as it is once when consuming starts. Detection is
+untouched by a silence.
 """
 
 from __future__ import annotations
@@ -43,6 +50,7 @@ from gwalerter.sema.types import (
     Alert,
     ChannelReadings,
     GNodeForest,
+    HackAlertSilences,
     LayoutLite,
     ReportEvent,
 )
@@ -89,6 +97,9 @@ class AlerterActor(Orchestrator):
             heard_floor_ms=self.clock_ms(),
             heard_period_ms=settings.heard_period_s * 1000,
         )
+        self.silences_path = settings.silences_path
+        self.silences_file_ok: bool | None = None
+        self.load_silences()
         self.detectors_stop = threading.Event()
         self.detector_thread = threading.Thread(
             target=self.run_detectors, name=f"{self.alias}-detectors", daemon=True
@@ -108,6 +119,7 @@ class AlerterActor(Orchestrator):
         )
         self._live_channel().queue_bind(self.queue_name, EAR_EXCHANGE, routing_key="#")
         self.hearing_resumed()
+        self.announce_silences()
 
     def hearing_resumed(self) -> None:
         """Consuming has started: the silence until now was the actor's own
@@ -133,8 +145,80 @@ class AlerterActor(Orchestrator):
                 self.logger.exception("Detector evaluation failed")
 
     def evaluate_detectors(self) -> None:
+        self.refresh_silences()
         for alert in self.no_data.evaluate(self.clock_ms()):
             self.emit(alert)
+
+    # -- silences -----------------------------------------------------------
+
+    def read_silences(self) -> HackAlertSilences | None:
+        """The silences file decoded through the codec, or None when there
+        is no file or it does not decode; a change in that state is logged
+        once, not every tick."""
+        try:
+            word = self.codec.from_dict(
+                json.loads(self.silences_path.read_text()), expect=HackAlertSilences
+            )
+        except FileNotFoundError:
+            if self.silences_file_ok is not False:
+                self.logger.warning(
+                    "No silences file at %s: every house pages", self.silences_path
+                )
+            self.silences_file_ok = False
+            return None
+        except (OSError, ValueError) as e:
+            if self.silences_file_ok is not False:
+                self.logger.error(
+                    "Silences file %s not read; the list stands as last loaded: %r",
+                    self.silences_path,
+                    e,
+                )
+            self.silences_file_ok = False
+            return None
+        if self.silences_file_ok is not True:
+            self.logger.info(
+                "Silences file %s: %d house(s) silenced",
+                self.silences_path,
+                len(word.silenced_g_node_aliases),
+            )
+        self.silences_file_ok = True
+        return word
+
+    def load_silences(self) -> bool:
+        """Make the store's list the file's; True when that changed it. A
+        missing file is the empty list."""
+        word = self.read_silences()
+        if word is None:
+            if not self.silences_path.exists():
+                return self.store.replace_silences(
+                    HackAlertSilences(src=self.alias, silenced_g_node_aliases=[])
+                )
+            return False
+        return self.store.replace_silences(word)
+
+    def refresh_silences(self) -> None:
+        """On the detector tick: a changed file replaces the store's list
+        and the new snapshot is broadcast."""
+        if self.load_silences():
+            self.announce_silences()
+
+    def announce_silences(self) -> None:
+        """Broadcast the silences snapshot on the mic exchange, from the
+        store's list so a consumer sees what the tap applies."""
+        word = HackAlertSilences(
+            src=self.alias, silenced_g_node_aliases=self.store.silenced_aliases()
+        )
+        self.logger.info(
+            "%s: %d house(s) silenced",
+            word.type_name,
+            len(word.silenced_g_node_aliases),
+        )
+        diagnostic = self.send(
+            envelope=self.broadcast_envelope(type_name=word.type_name),
+            body=json.dumps(word.to_dict()).encode(),
+        )
+        if diagnostic is not OnSendMessageDiagnostic.MESSAGE_SENT:
+            self.logger.error("%s not sent: %s", word.type_name, diagnostic.value)
 
     def emit(self, word: Alert) -> None:
         """Broadcast an alert record on the mic exchange, keyed by the alias
