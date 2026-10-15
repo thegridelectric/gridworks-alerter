@@ -166,6 +166,13 @@ types:
       types:
       - channel.readings:002
       versionless_types: []
+  gw.hack.alert.silences:
+    '000':
+      enums: []
+      formats:
+      - left.right.dot
+      types: []
+      versionless_types: []
   gw.opsgenie.alert:
     '000':
       enums:

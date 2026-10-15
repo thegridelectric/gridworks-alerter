@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from gwalerter.sema.codec import default_codec
-from gwalerter.sema.types import LayoutLite, ReportEvent
+from gwalerter.sema.types import HackAlertSilences, LayoutLite, ReportEvent
 from gwalerter.store import Store
 from tests.conftest import sample
 
@@ -82,3 +82,26 @@ def test_schema_comes_from_the_migration_chain(store: Store) -> None:
     with store.engine.connect() as conn:
         (current,) = conn.execute(text("SELECT version_num FROM alembic_version")).one()
     assert current == head
+
+
+def test_silences_are_replaced_wholesale(store: Store) -> None:
+    """The silences table is the latest snapshot's list and nothing else:
+    a house missing from the latest list is no longer silenced."""
+    elm = "d1.isone.me.versant.keene.elm.ta"
+    oak = "d1.isone.me.versant.keene.oak.ta"
+    assert store.silenced_aliases() == []
+    assert store.replace_silences(
+        HackAlertSilences(src="d1.alerts", silenced_g_node_aliases=[elm])
+    )
+    assert store.silenced_aliases() == [elm]
+    assert not store.replace_silences(
+        HackAlertSilences(src="d1.alerts", silenced_g_node_aliases=[elm])
+    )
+    assert store.replace_silences(
+        HackAlertSilences(src="d1.alerts", silenced_g_node_aliases=[oak])
+    )
+    assert store.silenced_aliases() == [oak]
+    assert store.replace_silences(
+        HackAlertSilences(src="d1.alerts", silenced_g_node_aliases=[])
+    )
+    assert store.silenced_aliases() == []

@@ -98,6 +98,13 @@ types:
       "000":
         summary: "Initial Sema version. One word for both transitions (State), a Category choosing the Kind enum (axiom 1), House requiring a .ta AboutGNodeAlias (axiom 2), ResolvedMs iff Resolved (axiom 3)."
 
+  gw.hack.alert.silences:
+    latest_version: "000"
+    versioning_strategy: "literal"
+    versions:
+      "000":
+        summary: "Initial Sema version. Src and the list of silenced terminal asset aliases (axiom 1: every alias ends in .ta). A stop gap until an alert manager service owns silencing."
+
   gw.opsgenie.alert:
     latest_version: "000"
     versioning_strategy: "literal"
@@ -138,10 +145,7 @@ types:
     versioning_strategy: "literal"
     versions:
       "006":
-        summary: >
-          - HpMaxKwEl: add as optional
-          - HpMaxKwTh: required -> optional
-          - HpTurnOnMinutes: add
+        summary: "HpMaxKwEl replaces HpMaxKwTh, required; the five Cop fields required; HpTurnOnMinutes added, required (the shape every scada has published at this version)"
       "005":
         summary: >
           - CopIntercept: add as optional

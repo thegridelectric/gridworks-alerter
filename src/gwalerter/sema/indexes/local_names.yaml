@@ -37,6 +37,7 @@ types:
   g.node.forest.request: g.node.forest.request
   g.node.gt: g.node.gt
   gw.alert: alert
+  gw.hack.alert.silences: hack.alert.silences
   gw.opsgenie.alert: opsgenie.alert
   gw.opsgenie.alert.close: opsgenie.alert.close
   gw.opsgenie.alert.create: opsgenie.alert.create

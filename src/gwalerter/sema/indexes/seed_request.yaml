@@ -33,6 +33,8 @@ initial_targets:
       versions: ["002"]
     g.node.forest.request:
       versions: ["000"]
+    gw.hack.alert.silences:
+      versions: ["000"]
 
 local_names:
   strip_prefixes: [gw1, gw]

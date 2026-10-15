@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 
+from gwbase.actor_base import OnSendMessageDiagnostic
 from gwbase.transport_encoding import (
     BroadcastRoutingEnvelope,
     TransportClass,
@@ -17,6 +18,7 @@ from gwbase.wrapped import wrap_bytes
 
 from gwalerter.alerter_actor import AlerterActor
 from gwalerter.config import AlerterSettings
+from gwalerter.sema.types import HackAlertSilences
 from gwalerter.store import Store
 from tests.conftest import sample
 
@@ -146,3 +148,46 @@ def test_untracked_scada_is_logged_once(
         a.dispatch_message(envelope=envelope, body=body)
     hits = [r for r in caplog.records if "no tracked house" in r.getMessage()]
     assert len(hits) == 1 and envelope.from_alias in hits[0].getMessage()
+
+
+def silences_file(settings: AlerterSettings, *aliases: str) -> None:
+    word = HackAlertSilences(src="d1.alerts", silenced_g_node_aliases=list(aliases))
+    settings.silences_path.write_text(json.dumps(word.to_dict()))
+
+
+def test_silences_file_is_loaded_at_init_and_rebroadcast_on_change(
+    settings: AlerterSettings, store: Store
+) -> None:
+    """The one silences file is the operator interface: its list is in
+    the store before the actor consumes, a refresh with the same file
+    sends nothing, and a changed file replaces the store's list and
+    broadcasts the new snapshot on the mic exchange."""
+    elm = "d1.isone.me.versant.keene.elm.ta"
+    oak = "d1.isone.me.versant.keene.oak.ta"
+    silences_file(settings, elm)
+    a = actor(settings, store)
+    assert store.silenced_aliases() == [elm]
+    sent: list[tuple[str, bytes]] = []
+
+    def capture(*, envelope, body, correlation_id=None):  # noqa: ANN001, ANN202, ARG001
+        sent.append((envelope.routing_key, body))
+        return OnSendMessageDiagnostic.MESSAGE_SENT
+
+    a.send = capture  # type: ignore[method-assign]
+    a.refresh_silences()
+    assert sent == []
+    silences_file(settings, elm, oak)
+    a.refresh_silences()
+    assert store.silenced_aliases() == [elm, oak]
+    (key, body) = sent[0]
+    assert key.endswith("gw-hack-alert-silences")
+    word = a.codec.from_dict(json.loads(body), expect=HackAlertSilences)
+    assert word.silenced_g_node_aliases == [elm, oak]
+
+
+def test_a_missing_silences_file_silences_nothing(
+    settings: AlerterSettings, store: Store
+) -> None:
+    assert not settings.silences_path.exists()
+    actor(settings, store)
+    assert store.silenced_aliases() == []

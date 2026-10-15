@@ -1,6 +1,6 @@
 metadata:
   generated_from: indexes/public_registry.yaml
-  generated_at: '2026-10-09T17:37:20Z'
+  generated_at: '2026-10-15T15:40:02Z'
   note: Transitive closure of initial_targets
 initial_targets:
 - report.event:002
@@ -14,6 +14,7 @@ initial_targets:
 - gw.opsgenie.alert:000
 - g.node.forest:002
 - g.node.forest.request:000
+- gw.hack.alert.silences:000
 worklist:
   formats:
     handle.name:
@@ -159,6 +160,9 @@ worklist:
     gw.alert:
       '000':
         path: definitions/types/gw.alert/000.yaml
+    gw.hack.alert.silences:
+      '000':
+        path: definitions/types/gw.hack.alert.silences/000.yaml
     gw.opsgenie.alert:
       '000':
         path: definitions/types/gw.opsgenie.alert/000.yaml
