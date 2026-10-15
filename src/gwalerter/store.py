@@ -47,6 +47,7 @@ from gwalerter.sema.types import (
     LayoutLite,
     ReportEvent,
 )
+from gwalerter.sema.types.old_versions.layout_lite_011 import LayoutLite011
 from gwalerter.sema.types.old_versions.report_event_002 import ReportEvent002
 from gwalerter.sema.types.old_versions.report_event_003 import ReportEvent003
 
@@ -196,7 +197,7 @@ class Store:
     # -- writes ----------------------------------------------------------
 
     def record_layout(
-        self, layout: LayoutLite, *, received_ms: UTCMilliseconds
+        self, layout: LayoutLite | LayoutLite011, *, received_ms: UTCMilliseconds
     ) -> None:
         """Keep the latest layout per scada; its arrival is a sign of life."""
         with self.lock, self.session() as s:
