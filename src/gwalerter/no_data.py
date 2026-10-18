@@ -25,6 +25,7 @@ from __future__ import annotations
 import uuid
 
 from gwalerter.duration import minutes
+from gwalerter.records import resolved_of
 from gwalerter.sema.enums import (
     AlertCategory,
     AlertState,
@@ -185,14 +186,8 @@ class NoDataRule:
         open_alert = self.open_no_data(house.alias)
         if open_alert is None:
             return None
-        resolved = Alert(
-            src=self.src,
-            category=AlertCategory.House,
-            kind=HouseAlertKind.NoData,
-            state=AlertState.Resolved,
-            about_g_node_alias=house.alias,
-            alert_id=open_alert.alert_id,
-            raised_ms=open_alert.raised_ms,
+        resolved = resolved_of(
+            open_alert,
             resolved_ms=arrival_ms,
             # Since the last data: the alert was raised one silence after it.
             summary=(

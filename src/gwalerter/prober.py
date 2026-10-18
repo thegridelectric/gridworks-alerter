@@ -54,6 +54,7 @@ from pydantic import TypeAdapter
 
 from gwalerter.config import AlerterSettings
 from gwalerter.duration import minutes
+from gwalerter.records import resolved_of
 from gwalerter.sema.enums import AlertCategory, AlertState, PlatformAlertKind
 from gwalerter.sema.property_format import LeftRightDot, UTCMilliseconds
 from gwalerter.sema.types import Alert
@@ -333,18 +334,7 @@ class Prober:
             if fleet_heard
             else f"Broker door {door.name} up again after {down}"
         )
-        resolved = Alert(
-            src=self.src,
-            category=AlertCategory.PlatformService,
-            kind=PlatformAlertKind.BrokerUnreachable,
-            state=AlertState.Resolved,
-            subject=door.name,
-            alert_id=open_alert.alert_id,
-            raised_ms=open_alert.raised_ms,
-            resolved_ms=now_ms,
-            summary=summary,
-            evidence=[],
-        )
+        resolved = resolved_of(open_alert, resolved_ms=now_ms, summary=summary)
         self.store.clear_alert(resolved)
         self.logger.info(
             "Resolved BrokerUnreachable on %s (%s)", door.name, resolved.alert_id

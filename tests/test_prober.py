@@ -9,7 +9,6 @@ import socket
 import ssl
 import subprocess
 import threading
-import time
 import uuid
 from pathlib import Path
 
@@ -180,9 +179,7 @@ def test_the_tap_pages_a_store_written_alert(
     p.tick()
     (firing,) = p.tick()
     og = RecordingOpsgenie()
-    tap = Tap(
-        settings=settings, store=store, opsgenie=og.client(), clock=time.monotonic
-    )
+    tap = Tap(settings=settings, store=store, opsgenie=og.client())
     tap.reconcile()
     assert og.verbs() == [("create", firing.alert_id)]
     create = og.requests[0].body

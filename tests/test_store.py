@@ -26,11 +26,6 @@ def test_report_marks_house_heard_and_keeps_readings(store: Store) -> None:
     (house,) = store.houses()
     assert house.alias == event.src
     assert house.last_heard_ms == received_ms
-    assert house.layout_received_ms is None
-    latest = store.latest_reading(event.src, first.channel_name)
-    assert latest is not None
-    assert latest.value == first.value_list[-1]
-    assert latest.read_ms == first.scada_read_time_unix_ms_list[-1]
     assert len(store.readings_since(event.src, first.channel_name, 0)) == len(
         first.value_list
     )
@@ -58,7 +53,6 @@ def test_layout_round_trips_and_survives_reopen(tmp_path: Path) -> None:
     reopened = Store.open(url, readings_window_s=60, fleet_roots=[])
     (house,) = reopened.houses()
     assert house.alias == layout.from_g_node_alias
-    assert house.layout_received_ms == 1_800_000_000_000
     assert house.last_heard_ms == 1_800_000_000_000
     assert reopened.layout(layout.from_g_node_alias) == layout
     assert reopened.layout("d1.nowhere.scada") is None

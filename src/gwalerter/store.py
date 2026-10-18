@@ -82,13 +82,11 @@ class Reading(NamedTuple):
 
 
 class HouseRecord(NamedTuple):
-    """What the store knows about one scada: when it was last heard from
-    (any tracked message arriving), and when its latest layout arrived.
-    `None` where the scada has never sent that kind of message."""
+    """One scada the store has heard from and when: the latest arrival
+    of a report or a layout."""
 
     alias: LeftRightDot
-    last_heard_ms: UTCMilliseconds | None
-    layout_received_ms: UTCMilliseconds | None
+    last_heard_ms: UTCMilliseconds
 
 
 def migrate(url: str) -> None:
@@ -295,20 +293,15 @@ class Store:
                     select(LayoutSql.scada_alias, LayoutSql.received_ms)
                 )
             }
-        records = []
-        for alias in sorted(set(heard) | set(layouts)):
-            got = layouts.get(alias)
-            last = max(v for v in (heard.get(alias), got) if v is not None)
-            records.append(
-                HouseRecord(
-                    alias=LRD.validate_python(alias),
-                    last_heard_ms=UTC_MS.validate_python(last),
-                    layout_received_ms=None
-                    if got is None
-                    else UTC_MS.validate_python(got),
-                )
+        return [
+            HouseRecord(
+                alias=LRD.validate_python(alias),
+                last_heard_ms=UTC_MS.validate_python(
+                    max(v for v in (heard.get(alias), layouts.get(alias)) if v)
+                ),
             )
-        return records
+            for alias in sorted(set(heard) | set(layouts))
+        ]
 
     def layout(self, scada_alias: LeftRightDot) -> LayoutLite | None:
         with self.lock, self.session() as s:
@@ -316,20 +309,6 @@ class Store:
         if row is None:
             return None
         return default_codec.from_dict(row.payload, expect=LayoutLite)
-
-    def latest_reading(
-        self, scada_alias: LeftRightDot, channel: SpaceheatName
-    ) -> Reading | None:
-        with self.lock, self.session() as s:
-            row = s.scalar(
-                select(ReadingSql)
-                .where(
-                    ReadingSql.scada_alias == scada_alias, ReadingSql.channel == channel
-                )
-                .order_by(ReadingSql.read_ms.desc())
-                .limit(1)
-            )
-        return None if row is None else self.reading(row)
 
     def readings_since(
         self,
