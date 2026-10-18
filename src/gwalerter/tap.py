@@ -208,7 +208,6 @@ class Tap:
         settings: AlerterSettings,
         store: Store,
         opsgenie: OpsgenieClient | None = None,
-        clock: Callable[[], float] = time.monotonic,
         wall_ms: Callable[[], int] = lambda: int(time.time() * 1000),
     ) -> None:
         self.settings = settings
@@ -217,12 +216,10 @@ class Tap:
             settings.opsgenie_url,
             api_key=settings.opsgenie_api_key.get_secret_value(),
         )
-        self.clock = clock
         self.wall_ms = wall_ms
         self.reconcile_s = settings.tap_reconcile_s
         # The alerts Opsgenie has been told are open, by AlertId.
         self.told: dict[str, Alert] = {}
-        self.last_reconcile = clock()
         self.stop_event = threading.Event()
         self.logger = logging.getLogger(__name__)
 
@@ -261,10 +258,6 @@ class Tap:
             elif alert_id not in store_open:
                 self.logger.info("Reconcile: closing %s", alert_id)
                 self.close(self.store.resolved_record(alert_id) or word)
-        self.last_reconcile = self.clock()
-
-    def reconcile_due(self) -> bool:
-        return self.clock() - self.last_reconcile >= self.reconcile_s
 
     def mapped(self, word: Alert) -> OpsgenieAlertCreate:
         display_name = None

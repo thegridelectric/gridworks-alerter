@@ -187,14 +187,12 @@ def tap(
     settings: AlerterSettings,
     store: Store,
     og: RecordingOpsgenie,
-    clock,
     wall_ms=lambda: T0 + 60_000,
 ) -> Tap:
     return Tap(
         settings=settings,
         store=store,
         opsgenie=og.client(),
-        clock=clock,
         wall_ms=wall_ms,
     )
 
@@ -203,7 +201,7 @@ def test_firing_creates_and_resolved_closes(
     settings: AlerterSettings, store: Store
 ) -> None:
     og = RecordingOpsgenie()
-    t = tap(settings, store, og, time.monotonic)
+    t = tap(settings, store, og)
     word = firing()
     store.raise_alert(word)
     t.reconcile()
@@ -226,19 +224,14 @@ def test_reconcile_tells_opsgenie_what_the_store_holds_open(
     word = firing()
     store.raise_alert(word)
     og = RecordingOpsgenie()
-    now = [0.0]
-    t = tap(settings, store, og, lambda: now[0])
+    t = tap(settings, store, og)
     t.reconcile()
     assert og.verbs() == [("create", word.alert_id)]
-    assert not t.reconcile_due()
-    now[0] = settings.tap_reconcile_s
-    assert t.reconcile_due()
     t.reconcile()
     assert og.verbs() == [("create", word.alert_id)]  # already told; nothing new
     # The alerter resolves it but the Resolved record never reaches the
     # tap: the next pass closes it anyway.
     store.clear_alert(resolved(word))
-    now[0] = 2 * settings.tap_reconcile_s
     t.reconcile()
     assert og.verbs()[-1] == ("close", word.alert_id)
     assert og.requests[-1].body["note"] == "Data from spruce again"
@@ -249,7 +242,7 @@ def test_refused_post_is_retried_then_left_for_reconcile(
     settings: AlerterSettings, store: Store
 ) -> None:
     og = RecordingOpsgenie(refuse=2)
-    t = tap(settings, store, og, time.monotonic)
+    t = tap(settings, store, og)
     store.raise_alert(word := firing())
     t.reconcile()
     assert og.verbs() == [("create", word.alert_id)]  # third attempt got through
@@ -295,7 +288,7 @@ def test_a_tap_with_no_broker_pages_what_the_store_holds(
     )
     store.raise_alert(word)
     og = RecordingOpsgenie()
-    t = tap(settings, store, og, time.monotonic)
+    t = tap(settings, store, og)
     thread = threading.Thread(target=t.run, daemon=True)
     thread.start()
     try:
@@ -321,7 +314,7 @@ def test_a_silenced_house_is_not_paged_until_lifted(
     store.raise_alert(word)
     store.replace_silences(silences(f"{HOUSE}.ta"))
     og = RecordingOpsgenie()
-    t = tap(settings, store, og, lambda: 0.0)
+    t = tap(settings, store, og)
     t.reconcile()
     assert og.verbs() == []
     assert [a.alert_id for a in store.open_alerts()] == [word.alert_id]
@@ -339,7 +332,7 @@ def test_silencing_a_paged_house_closes_its_page(
     word = firing()
     store.raise_alert(word)
     og = RecordingOpsgenie()
-    t = tap(settings, store, og, lambda: 0.0)
+    t = tap(settings, store, og)
     t.reconcile()
     assert og.verbs() == [("create", word.alert_id)]
     store.replace_silences(silences(f"{HOUSE}.ta"))

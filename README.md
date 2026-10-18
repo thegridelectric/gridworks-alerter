@@ -1,92 +1,120 @@
 # gridworks-alerter
 
-The GridWorks house alerter (gwalerter): a gwbase actor on the fleet's
-RabbitMQ broker that watches what the house scadas send and raises
-alerts. It is the successor to gwalert (`gridworks-alerts`), which polls
-the journal database; the two run side by side while detectors move
-over one at a time.
+The alerter is the production system's alert generator: the primary place
+that decides a condition anywhere in the fleet or the platform needs a
+person, and says so. It listens to everything on the production rabbit
+broker, every message every service and every house sends, the moment
+it is sent, the same traffic the journal records. It keeps what it
+needs in a store of its own (what exists, the latest state of each
+thing, when each was last heard from, a few hours of readings, which
+alerts are open), so it reads nobody else's database and no analysis
+query can slow it down or raise an alert by mistake. Its kinds are
+about houses and the platform, and they grow with the platform.
 
-## What it alerts on
+A set of rules runs over that store every few seconds. Each rule is one
+alert kind, named for the condition a person acts on: no data from a
+house, a zone at freeze risk, a heat pump commanded on and drawing no
+power. When a condition starts to hold the alerter raises one alert;
+when it stops, it resolves that same alert. It never repeats itself.
+Which houses it watches is the registry's business: every house under
+the fleet's roots that is pending or active. A house in service that
+should not page right now, during a heat pump install or a visit, is
+silenced by name; its alerts are still recorded, just not paged.
 
-Two conditions today.
+It runs as three services on its own box, apart from the journal, so a
+journaling problem and an alerting problem are never one outage: the
+listener, which hears the broker, keeps the store and runs the rules;
+the tap, the only one that talks to the alert manager, which reads the
+store and nothing else; and the prober, which checks the broker's doors
+from outside, because the alerter cannot hear a broker outage on the
+broker. The tap needs no broker, so "broker down" still reaches a
+person. The box, who may log in and how it is operated are in
+`gridworks-infra/alerts/instance-README.md`.
 
-**`NoData`**: a tracked house has sent nothing (no `report.event`, no
-`layout.lite`) for longer than `GWALERTER_NO_DATA_SILENCE_S` (default
-600 s). The alert is raised once, and the first message from the house
-resolves it, with that arrival as the evidence. A house the alerter has
-not heard from since its own boot is silent from boot, so a fresh
-alerter gives every house one threshold to speak before it pages.
-Open-alert state lives in the store, which is what makes a restart
-neither re-raise nor forget.
+The alerter raises and resolves. It does not decide who is woken: that
+is an alert manager's job, who is on call, how often an open alert
+re-notifies, how it escalates, when a person acknowledges it. The
+alert manager is Opsgenie. The alerter creates an alert there when a
+condition starts, closes it when the condition ends, and the person on
+call acknowledges in between. Every alert record is also published on
+the broker, so the journal keeps it and the alerts page can show it.
 
-**`BrokerUnreachable`**: a door of the fleet's broker has failed the
-prober's check `GWALERTER_PROBE_FAILURES_TO_RAISE` (3) probes running,
-one probe per `GWALERTER_PROBE_INTERVAL_S` (60 s). The prober
-(`gwalerter probe`) is a separate process that never consumes the
-broker: it checks the AMQPS door with a round trip (connect, declare an
-exclusive queue, publish one message to it, receive it back) and the
-MQTT door the scadas use with a connect (TLS, CONNECT, any CONNACK),
-one alert per door, the door as the alert's `Subject`. The first
-success resolves it. While a `BrokerUnreachable` alert is open the
-alerter raises no `NoData` (every house is silent for the same reason),
-and when it resolves each house gets one silence threshold to reconnect
-before it pages. The probe is made from the alerts box, so a network
-fault there looks the same as a broker fault; the summary says so.
+## The kinds it raises
 
-Every alert leaves as a `gw.alert` word: `Category` (House, Fleet,
-PlatformService), `Kind`, `State` (Firing, Resolved), an `AlertId` the
-two transitions share, the house it is about, a summary, and evidence.
-The vocabulary already names the kinds the remaining gwalert detectors
-will move into (`ScadaRebootLoop`, `CriticalGlitch`, `ZoneBelowSetpoint`,
-`ZoneFreezeRisk`, `NoDistFlow`, `NoStoreFlow`, `HpNotResponding`,
-`HpRunningOnpeak`, `LocalControlActive`; fleet `AllHousesSilent`), but
-this alerter raises none of them yet:
-until a detector moves, gwalert pages for it. Which houses are tracked
-is a registry subtree (below); a house outside the fleet roots never
-pages.
+**`NoData`** (house): a tracked house has sent no report and no layout
+for longer than the silence threshold (`GWALERTER_NO_DATA_SILENCE_S`,
+600 s). Last-heard is floored at the alerter's own boot, so a fresh
+alerter gives every house one threshold to speak before it pages. The
+summary names the cause from whether the house's scada and its LTN
+have been heard at all: a silent scada is the house side; a speaking
+scada with a silent LTN means the reports are safe on the scada's disk,
+since a scada sends up no reports without its LTN; both speaking and no
+reports is a fault between two live parties. The first report or
+layout back resolves the alert, with that arrival as the evidence.
 
-The tap (`gwalerter tap`) is what pages: every few seconds it reads the
-store's open alerts, creates an Opsgenie alert for each one it has not
-told and closes each it told that the store has resolved. It never
-touches the broker, which is how the prober's alerts reach Opsgenie with
-the broker down. With no tap running, the alerter still records and
-broadcasts every alert and pages no one.
+**`BrokerUnreachable`** (platform): a door of the fleet's broker has
+failed the prober's check three probes running
+(`GWALERTER_PROBE_FAILURES_TO_RAISE`), one probe a minute
+(`GWALERTER_PROBE_INTERVAL_S`). The AMQPS door is checked with a round
+trip (connect, declare an exclusive queue, publish one message to it,
+receive it back); the MQTT door the scadas use with a TLS connect that
+must get an accepted CONNACK, since what refuses the prober at the gate
+refuses every scada. One alert per door, the door as the alert's
+`Subject`; the first success resolves it. While the fleet is being
+heard the probe's own failures do not count: the fault is then the
+prober's login, cert or network, and the summary says so. While a
+`BrokerUnreachable` alert is open no `NoData` is raised, and when it
+resolves every house gets one silence threshold to reconnect.
 
-**Inputs ride the broker.** The actor consumes the audit exchange like
-JournalKeeper does and keeps the message types it tracks. It is an
-Orchestrator-tier gwbase actor of transport class `Alerter`, so its alert
-words broadcast on its own `alertsmic_tx` exchange, which fans into the
-ear exchange for the manager and JournalKeeper. Tracked types:
+## How it is put together
 
-- `report.event` — each scada's periodic readings.
-- `layout.lite` — the scada's hardware layout, sent on boot; the source
-  of every channel's unit and role.
-- `g.node.forest` — the registry's topology broadcasts, projected to a
-  local `g_nodes` table by immutable id. At boot the alerter also asks
-  the registry's HTTP read (`GWALERTER_GNR_URL`) for the forest under
-  its fleet roots.
+**The store is one sqlite file**, shared by the three processes: the
+registry projection, the latest layout per scada, the latest arrival
+from every alias under the fleet roots, a rolling window of readings,
+the silenced houses and every alert's `Firing` and `Resolved` record.
+Every transition is written here before it is broadcast or paged, and a
+restart of any process neither re-raises an open alert nor forgets one.
+The alerter keeps its own file rather than reading the journal database
+so that a heavy query elsewhere can neither slow a page nor fake one.
 
-**Which houses it pages for is a registry subtree.** `GWALERTER_FLEET_ROOTS`
-(comma-separated root aliases, no default) names the fleet; every Active
-or Pending TerminalAsset under those roots is tracked and nothing else is. A house
-that must not page lives outside the roots. A scada heard from that
-reports for no tracked house is logged once per boot.
+**The listener** (`gwalerter rabbit`) is an Orchestrator-tier gwbase
+actor of transport class `Alerter`. It taps the audit exchange and keeps
+three message types, each decoded as the sema word it is at the version
+it was sent: `report.event` (each scada's readings), `layout.lite` (the
+scada's hardware layout) and `g.node.forest` (the registry's topology
+broadcasts, projected by immutable id; at boot it also asks the
+registry's HTTP read, `GWALERTER_GNR_URL`, for the forest under its
+roots). A body that does not decode is logged and dropped. Its alert
+words broadcast on its own `alertsmic_tx` exchange, keyed by the house
+the alert is about.
 
-**State lives in sqlite**, in the service's XDG data dir, behind
-SQLAlchemy with the schema applied by the alembic chain under
-`src/gwalerter/migrations/` when the store opens (never `create_all`):
-the registry projection, the latest layout per scada, a rolling window of
-readings, and alert state. Across a restart the projection, layouts and
-alert state survive; the readings window refills from live traffic. To
-change the schema: edit `db_models.py`, then
-`uv run alembic revision --autogenerate -m "..."` and review the file.
+**Which houses** is a registry subtree: `GWALERTER_FLEET_ROOTS`
+(comma-separated root aliases, no default) names the fleet, and every
+Pending or Active terminal asset under those roots is tracked. A scada
+heard from with no tracked house behind it is logged once per boot.
+**Silences** are one `gw.hack.alert.silences` file at
+`GWALERTER_SILENCES_PATH`, read at boot and on every tick and broadcast
+whenever it changes: a missing file silences nothing, an unreadable one
+leaves the last list standing. A silenced house's alerts are recorded
+and broadcast but not paged.
 
-Message types are governed by **Sema** — the versioned vocabulary of
-JSON-Schema contracts for all GridWorks message boundaries, canonical at
+**The tap** (`gwalerter tap`) reads the store's open alerts every few
+seconds and reconciles Opsgenie to them: it creates an alert for each
+open one about an unsilenced house that Opsgenie has not been told,
+closes the one it told for a house since silenced, and closes each one
+the store has resolved. The alerter owns open and closed; a person
+acknowledges and never has to close. Opsgenie deduplicates on the
+`AlertId`, which is what makes a tap restart neither re-page nor forget.
+Who is paged, how often an open alert re-notifies and how it escalates
+are Opsgenie's policy.
+
+**Message types are governed by Sema**, the versioned vocabulary of
+JSON-Schema contracts for every GridWorks message boundary, canonical at
 [`thegridelectric/sema`](https://github.com/thegridelectric/sema). This
-repo carries a vendored snapshot at `src/gwalerter/sema` — generated,
-never hand-edit; regenerate with `scripts/regen_sema_snapshot.sh` from
-the seed `src/gwalerter/sema_seed_request.yaml`.
+repo has a vendored snapshot at `src/gwalerter/sema`: generated, never
+hand-edited; regenerate with `scripts/regen_sema_snapshot.sh` from the
+seed `src/gwalerter/sema_seed_request.yaml`. The seed takes published
+words only.
 
 ## Quick start (dev)
 
@@ -97,8 +125,13 @@ broker from the sibling `gridworks-base` repo: `./arm.sh` or `./x86.sh`).
 ```sh
 uv sync                       # install deps
 cp template.env .env          # then fill in the values
-uv run gwalerter rabbit       # run the actor
+uv run gwalerter rabbit       # the listener; `tap` and `probe` likewise
 ```
+
+The store's schema is applied by the alembic chain under
+`src/gwalerter/migrations/` when the store opens. To change it: edit
+`db_models.py`, `uv run alembic revision --autogenerate -m "..."`, and
+review the file.
 
 ## Tests
 
@@ -111,4 +144,5 @@ One login user (`alerter`), the repo cloned in its home directory at a
 pushed SHA, `.env` at the repo root, `uv sync --frozen`, and the three
 units in `service/` (`alerter-rabbit`, `alerter-tap`, `alerter-probe`)
 copied to `/etc/systemd/system/`. Logs go to
-`~/.local/state/gridworks/alerter/log/<alias>.log`.
+`~/.local/state/gridworks/alerter/log/<alias>.log`. The box itself is
+described in `gridworks-infra/alerts/instance-README.md`.

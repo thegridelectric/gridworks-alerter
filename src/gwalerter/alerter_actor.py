@@ -98,7 +98,7 @@ class AlerterActor(Orchestrator):
             heard_period_ms=settings.heard_period_s * 1000,
         )
         self.silences_path = settings.silences_path
-        self.silences_file_ok: bool | None = None
+        self.silences_file_state = ""
         self.load_silences()
         self.detectors_stop = threading.Event()
         self.detector_thread = threading.Thread(
@@ -151,50 +151,41 @@ class AlerterActor(Orchestrator):
 
     # -- silences -----------------------------------------------------------
 
-    def read_silences(self) -> HackAlertSilences | None:
-        """The silences file decoded through the codec, or None when there
-        is no file or it does not decode; a change in that state is logged
-        once, not every tick."""
+    def load_silences(self) -> bool:
+        """Make the store's list the silences file's; True when that changed
+        it. A missing file is the empty list; a file that does not read
+        leaves the list standing. The file's state (loaded, missing,
+        unreadable) is logged when it changes, not every tick."""
         try:
             word = self.codec.from_dict(
                 json.loads(self.silences_path.read_text()), expect=HackAlertSilences
             )
+            state = "loaded"
         except FileNotFoundError:
-            if self.silences_file_ok is not False:
+            word = HackAlertSilences(src=self.alias, silenced_g_node_aliases=[])
+            state = "missing"
+        except (OSError, ValueError) as e:
+            word = None
+            state = f"unreadable: {e!r}"
+        if state != self.silences_file_state:
+            self.silences_file_state = state
+            if word is None:
+                self.logger.error(
+                    "Silences file %s %s; the list stands as last loaded",
+                    self.silences_path,
+                    state,
+                )
+            elif state == "missing":
                 self.logger.warning(
                     "No silences file at %s: every house pages", self.silences_path
                 )
-            self.silences_file_ok = False
-            return None
-        except (OSError, ValueError) as e:
-            if self.silences_file_ok is not False:
-                self.logger.error(
-                    "Silences file %s not read; the list stands as last loaded: %r",
+            else:
+                self.logger.info(
+                    "Silences file %s: %d house(s) silenced",
                     self.silences_path,
-                    e,
+                    len(word.silenced_g_node_aliases),
                 )
-            self.silences_file_ok = False
-            return None
-        if self.silences_file_ok is not True:
-            self.logger.info(
-                "Silences file %s: %d house(s) silenced",
-                self.silences_path,
-                len(word.silenced_g_node_aliases),
-            )
-        self.silences_file_ok = True
-        return word
-
-    def load_silences(self) -> bool:
-        """Make the store's list the file's; True when that changed it. A
-        missing file is the empty list."""
-        word = self.read_silences()
-        if word is None:
-            if not self.silences_path.exists():
-                return self.store.replace_silences(
-                    HackAlertSilences(src=self.alias, silenced_g_node_aliases=[])
-                )
-            return False
-        return self.store.replace_silences(word)
+        return word is not None and self.store.replace_silences(word)
 
     def refresh_silences(self) -> None:
         """On the detector tick: a changed file replaces the store's list
