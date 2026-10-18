@@ -99,14 +99,16 @@ leaves the last list standing. A silenced house's alerts are recorded
 and broadcast but not paged.
 
 **The tap** (`gwalerter tap`) reads the store's open alerts every few
-seconds and reconciles Opsgenie to them: it creates an alert for each
-open one about an unsilenced house that Opsgenie has not been told,
-closes the one it told for a house since silenced, and closes each one
-the store has resolved. The alerter owns open and closed; a person
-acknowledges and never has to close. Opsgenie deduplicates on the
-`AlertId`, which is what makes a tap restart neither re-page nor forget.
-Who is paged, how often an open alert re-notifies and how it escalates
-are Opsgenie's policy.
+seconds, lists what Opsgenie holds open from this alerter, and
+reconciles the two: it creates an alert for each open one about an
+unsilenced house that Opsgenie does not hold, closes the one Opsgenie
+holds for a house since silenced, and closes each one Opsgenie holds
+that the store does not hold open. The alerter owns open and closed; a
+person acknowledges and never has to close, and a close made by hand
+while the condition holds is undone on the next pass. When the listing
+cannot be read the tap works from what its own creates and closes left,
+and Opsgenie deduplicates on the `AlertId`. Who is paged, how often an
+open alert re-notifies and how it escalates are Opsgenie's policy.
 
 **Message types are governed by Sema**, the versioned vocabulary of
 JSON-Schema contracts for every GridWorks message boundary, canonical at
