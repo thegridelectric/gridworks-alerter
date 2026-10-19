@@ -41,16 +41,21 @@ the broker, so the journal keeps it and the alerts page can show it.
 
 ## The kinds it raises
 
-**`NoData`** (house): a tracked house has sent no report and no layout
-for longer than the silence threshold (`GWALERTER_NO_DATA_SILENCE_S`,
-600 s). Last-heard is floored at the alerter's own boot, so a fresh
-alerter gives every house one threshold to speak before it pages. The
-summary names the cause from whether the house's scada and its LTN
-have been heard at all: a silent scada is the house side; a speaking
-scada with a silent LTN means the reports are safe on the scada's disk,
-since a scada sends up no reports without its LTN; both speaking and no
-reports is a fault between two live parties. The first report or
-layout back resolves the alert, with that arrival as the evidence.
+**`ScadaSilent`, `LtnSilent`, `NoData`** (house): three kinds for one
+condition, no readings arriving from a tracked house's scada for longer
+than the silence threshold (`GWALERTER_NO_DATA_SILENCE_S`, 600 s). The
+readings come in report.events, and a scada stops sending report.events
+(but keeps sending snapshots) when it is not communicating with its
+LTN. The kind says which party has gone quiet: `ScadaSilent` when
+nothing has been heard from the scada; `LtnSilent` when the scada is
+speaking and its LTN is not, so the reports are safe on the scada's
+disk; `NoData` when both are speaking and no reports arrive, a fault
+between two live parties. Last-heard is floored at the alerter's own
+boot, so a fresh alerter gives every house one threshold to speak
+before it pages. An open alert whose cause moves keeps its id and
+changes kind. A report back from the scada resolves the alert on the
+next tick, with that report's readings as the evidence; a layout is
+stored for its meaning and is no sign of life.
 
 **`BrokerUnreachable`** (platform): a door of the fleet's broker has
 failed the prober's check three probes running
@@ -63,7 +68,7 @@ refuses every scada. One alert per door, the door as the alert's
 `Subject`; the first success resolves it. While the fleet is being
 heard the probe's own failures do not count: the fault is then the
 prober's login, cert or network, and the summary says so. While a
-`BrokerUnreachable` alert is open no `NoData` is raised, and when it
+`BrokerUnreachable` alert is open no silence alert is raised, and when it
 resolves every house gets one silence threshold to reconnect.
 
 ## How it is put together
@@ -100,12 +105,14 @@ and broadcast but not paged.
 
 **The tap** (`gwalerter tap`) reads the store's open alerts every few
 seconds, lists what Opsgenie holds open from this alerter, and
-reconciles the two: it creates an alert for each open one about an
-unsilenced house that Opsgenie does not hold, closes the one Opsgenie
-holds for a house since silenced, and closes each one Opsgenie holds
-that the store does not hold open. The alerter owns open and closed; a
-person acknowledges and never has to close, and a close made by hand
-while the condition holds is undone on the next pass. When the listing
+reconciles the two. A house alert's Opsgenie headline is
+`[house] [Kind] summary`, the house by its short name. It creates an
+alert for each open one about an unsilenced house that Opsgenie does
+not hold, closes the one Opsgenie holds for a house since silenced, and
+closes each one Opsgenie holds that the store does not hold open. The
+alerter owns open and closed; a person acknowledges and never has to
+close, and a close made by hand while the condition holds is undone on
+the next pass. When the listing
 cannot be read the tap works from what its own creates and closes left,
 and Opsgenie deduplicates on the `AlertId`. Who is paged, how often an
 open alert re-notifies and how it escalates are Opsgenie's policy.

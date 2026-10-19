@@ -12,6 +12,7 @@ types:
     '002':
       used_by:
       - gw.alert:000
+      - gw.alert:001
       - report:002
       - report:003
   connectivity.edge.gt:
@@ -151,18 +152,24 @@ enums:
     '000':
       used_by:
       - gw.alert:000
+      - gw.alert:001
   gw.alert.state:
     '000':
       used_by:
       - gw.alert:000
+      - gw.alert:001
   gw.fleet.alert.kind:
     '000':
       used_by:
       - gw.alert:000
+      - gw.alert:001
   gw.house.alert.kind:
     '000':
       used_by:
       - gw.alert:000
+    '001':
+      used_by:
+      - gw.alert:001
   gw.opsgenie.alert.status:
     '000':
       used_by:
@@ -176,6 +183,7 @@ enums:
     '000':
       used_by:
       - gw.alert:000
+      - gw.alert:001
   gw1.actor.class:
     009:
       used_by:
@@ -266,6 +274,7 @@ formats:
     - g.node.forest:002
     - g.node.gt:006
     - gw.alert:000
+    - gw.alert:001
     - gw.hack.alert.silences:000
     - gw.opsgenie.alert.close:000
     - gw.opsgenie.alert.create:000
@@ -323,6 +332,7 @@ formats:
     - fsm.atomic.report:001
     - g.node.forest:002
     - gw.alert:000
+    - gw.alert:001
     - gw.opsgenie.alert:000
     - layout.lite:011
     - layout.lite:012
@@ -352,6 +362,7 @@ formats:
     - g.node.forest.request:000
     - g.node.gt:006
     - gw.alert:000
+    - gw.alert:001
     - gw.opsgenie.alert.close:000
     - gw.opsgenie.alert.create:000
     - gw.opsgenie.alert:000

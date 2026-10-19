@@ -1,27 +1,12 @@
-"""The tap: every alert open in the alerter's store becomes an Opsgenie
-alert, and its `Resolved` record closes it.
+"""The tap: pages the alerter's open alerts through Opsgenie and closes
+them when they resolve.
 
-A poller of the store beside the actor, with no broker connection: the
-one alert that means the broker is down has to reach a person while the
-broker is down. Every `tap_reconcile_s` it reads the store's open alerts
-and reconciles Opsgenie against them: an open alert Opsgenie has not
-been told of is created, one Opsgenie holds that the store has resolved
-is closed. Each record is mapped onto the tap's outbound words,
-`gw.opsgenie.alert.create` and `gw.opsgenie.alert.close`, which the post
-writes into Opsgenie's request shape: the alias is the `AlertId`, which
-is what Opsgenie deduplicates on, so an alert told twice is one alert
-and a re-raise after a resolve is a new one. Which people are paged, how
-often an open alert re-notifies and how it escalates are Opsgenie's
-policy, not the tap's.
-
-Each pass starts by listing what Opsgenie holds open from this alerter,
-each alert read as `gw.opsgenie.alert`; that listing is the told set, so
-a tap restart, a failed close and a close made by hand are all seen on
-the next pass. When the listing cannot be read the last told set stands
-(empty at boot, so the first pass re-creates every open alert and
-Opsgenie folds those into the alerts it already has). A post that fails
-after its retries is logged and left for the next pass: the store and
-the journal are the durable record.
+It is its own process with no broker connection, so the alert that says
+the broker is down still reaches a person. It polls the store and
+reconciles Opsgenie against it, keying each Opsgenie alert on the
+AlertId, so an alert told twice is one alert and a re-raise after a
+resolve is a new one. Who is paged, how often an open alert re-notifies
+and how it escalates are Opsgenie's policy.
 """
 
 from __future__ import annotations
@@ -33,10 +18,10 @@ from collections.abc import Callable
 from datetime import datetime
 
 import httpx
+from pydantic import BaseModel, ConfigDict, Field
 
 from gwalerter.config import AlerterSettings
 from gwalerter.duration import minutes
-from gwalerter.sema.codec import default_codec
 from gwalerter.sema.enums import OpsgenieAlertStatus, OpsgeniePriority
 from gwalerter.sema.types import (
     Alert,
@@ -62,26 +47,23 @@ NOT_IN_STORE_NOTE = "Closed by the alerter: not open in its store"
 
 
 def house_short_name(about_g_node_alias: str) -> str:
-    """The headline name: the segment before `.ta` (`…keene.spruce.ta` →
-    `spruce`). Display only; the full alias stays the identity."""
+    """The last segment of the house alias before the terminal-asset
+    suffix, for a headline."""
     return about_g_node_alias.removesuffix(".ta").rsplit(".", 1)[-1]
 
 
 def to_opsgenie(
     word: Alert, *, display_name: str | None, team_id: str
 ) -> OpsgenieAlertCreate:
-    """Map one `Firing` record onto the create word. The headline is
-    `[House] summary` for a house alert, else the summary; `Entity` is
-    the full alias (or `Subject`, or `Src`), so two houses with one short
-    name are two alerts; the named details carry the facts the headline
-    cannot."""
+    """The create word for one `Firing` record, headline and details
+    included."""
     subject = word.about_g_node_alias or word.subject or word.src
     message = word.summary
     house = None
     about = None
     if word.about_g_node_alias is not None:
         house = house_short_name(word.about_g_node_alias)
-        message = f"[{house.capitalize()}] {word.summary}"
+        message = f"[{house}] [{word.kind.value}] {word.summary}"
         about = word.about_g_node_alias
         if display_name:
             about = f"{about} ({display_name})"
@@ -89,7 +71,7 @@ def to_opsgenie(
         alias=word.alert_id,
         message=message[:MESSAGE_MAX_CHARS],
         description=word.summary,
-        entity=subject,
+        entity=subject,  # the full alias: two houses with one short name are two alerts
         source=word.src,
         priority=PRIORITY,
         responder_team_id=team_id,
@@ -103,9 +85,8 @@ def to_opsgenie(
 
 
 def to_opsgenie_close(word: Alert, note: str | None = None) -> OpsgenieAlertClose:
-    """Map one record onto the close of its alias, with the summary (a
-    `Resolved` record's) or the given note as what a reader sees on the
-    closed alert."""
+    """The close word for the record's alias; the note is the given one,
+    else the record's summary."""
     return OpsgenieAlertClose(
         alias=word.alert_id, source=word.src, note=note or word.summary
     )
@@ -118,9 +99,7 @@ def silenced_note(word: Alert, now_ms: int) -> str:
 
 
 def create_body(create: OpsgenieAlertCreate) -> dict[str, object]:
-    """Opsgenie's create request from the word: its fields in the API's
-    shape, the named details written into Opsgenie's flat string map
-    under their lower-case names, the team as the one responder."""
+    """Opsgenie's create request body for the word."""
     details = {
         "kind": create.kind,
         "category": create.category,
@@ -149,49 +128,71 @@ def close_body(close: OpsgenieAlertClose) -> dict[str, object]:
 
 
 def opsgenie_ms(stamp: str) -> int:
-    """Opsgenie's ISO 8601 instant (`2026-10-15T19:00:11.482Z`) as UTC ms."""
+    """Opsgenie's ISO 8601 instant as UTC milliseconds."""
     return int(datetime.fromisoformat(stamp.replace("Z", "+00:00")).timestamp() * 1000)
 
 
+class ListedReport(BaseModel):
+    """The `report` block of an alert as Opsgenie lists it: who acted on
+    it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    acknowledged_by: str | None = Field(default=None, alias="acknowledgedBy")
+    closed_by: str | None = Field(default=None, alias="closedBy")
+
+
+class ListedItem(BaseModel):
+    """One alert as Opsgenie's list endpoint gives it, the fields read."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    alias: str
+    id: str
+    tiny_id: str | None = Field(default=None, alias="tinyId")
+    message: str
+    status: str
+    acknowledged: bool
+    count: int
+    priority: str
+    source: str
+    tags: list[str]
+    created_at: str = Field(alias="createdAt")
+    last_occurred_at: str = Field(alias="lastOccurredAt")
+    report: ListedReport | None = None
+
+
 def listed_alert(item: dict[str, object]) -> OpsgenieAlert:
-    """One alert as Opsgenie's list endpoint gives it, read as the word: the
-    fields GridWorks reads lifted into the word's names, the rest left
-    behind."""
-    report = item.get("report")
-    report = report if isinstance(report, dict) else {}
-    status = (
-        OpsgenieAlertStatus.Closed
-        if item["status"] == "closed"
-        else OpsgenieAlertStatus.Open
-    )
-    wire: dict[str, object] = {
-        "TypeName": "gw.opsgenie.alert",
-        "Version": "000",
-        "Alias": item["alias"],
-        "OpsgenieId": item["id"],
-        "TinyId": item.get("tinyId") or None,
-        "Message": item["message"],
-        "Status": status.value,
-        "Acknowledged": item["acknowledged"],
-        "Count": item["count"],
-        "Priority": item["priority"],
-        "Source": item["source"],
-        "Tags": item["tags"],
-        "CreatedMs": opsgenie_ms(str(item["createdAt"])),
-        "LastOccurredMs": opsgenie_ms(str(item["lastOccurredAt"])),
-        "AcknowledgedBy": report.get("acknowledgedBy") or None,
-        "ClosedBy": report.get("closedBy") or None,
-    }
-    return default_codec.from_dict(
-        {k: v for k, v in wire.items() if v is not None}, expect=OpsgenieAlert
+    """One alert as Opsgenie's list endpoint gives it, read as the word."""
+    listed = ListedItem.model_validate(item)
+    report = listed.report or ListedReport()
+    return OpsgenieAlert(
+        alias=listed.alias,
+        opsgenie_id=listed.id,
+        tiny_id=listed.tiny_id or None,
+        message=listed.message,
+        status=(
+            OpsgenieAlertStatus.Closed
+            if listed.status == "closed"
+            else OpsgenieAlertStatus.Open
+        ),
+        acknowledged=listed.acknowledged,
+        count=listed.count,
+        priority=OpsgeniePriority(listed.priority),
+        source=listed.source,
+        tags=listed.tags,
+        created_ms=opsgenie_ms(listed.created_at),
+        last_occurred_ms=opsgenie_ms(listed.last_occurred_at),
+        acknowledged_by=report.acknowledged_by or None,
+        closed_by=report.closed_by or None,
     )
 
 
 class OpsgenieClient:
-    """Creates and closes alerts through Opsgenie's Alert API, retrying a
-    transport failure a few times and giving up after that. Opsgenie
-    accepts a request (202) and processes it asynchronously, so a 202 is
-    "taken", not "done"."""
+    """Creates and closes alerts through Opsgenie's Alert API. A transport
+    failure is retried a few times before the call gives up. Opsgenie
+    accepts a request and processes it later, so a True result means the
+    request was accepted and the alert may still be refused."""
 
     def __init__(
         self,
@@ -327,12 +328,9 @@ class Tap:
             self.told.discard(close.alias)
 
     def reconcile(self) -> None:
-        """The store is the truth about which alerts are open and which
-        houses are silenced, and Opsgenie's listing is the truth about
-        what it has been told: tell Opsgenie of any open alert about an
-        unsilenced house it does not hold, close any it holds about a
-        house since silenced, and close any it holds that the store does
-        not hold open (resolved, or never this store's)."""
+        """One pass: Opsgenie's open alerts are made to match the store's
+        open alerts about unsilenced houses, with Opsgenie's listing as
+        what it holds."""
         listed = self.opsgenie.list_open(self.src)
         if listed is not None:
             self.told = {alert.alias for alert in listed}

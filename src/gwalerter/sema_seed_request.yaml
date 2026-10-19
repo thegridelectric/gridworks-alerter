@@ -1,19 +1,7 @@
-# Seed request for gridworks-alerter (gwalerter).
-#
-# Regenerate the snapshot after editing this seed:
-#   scripts/regen_sema_snapshot.sh
-# (runs `sema snapshot prepare <this file>` + `build --package-name gwalerter`
-# in the sema repo, then mirrors output/sema -> src/gwalerter/sema).
-# src/gwalerter/sema is generated — edit this seed, not the vendored output.
-#
-# The alerter decodes what the fleet's scadas send: the report.event
-# versions on the wire (002 through 004), each at its sent version, and
-# the published layout.lite versions the current scada releases send, projects the registry's forest broadcasts and
-# requests one at boot, emits gw.alert, and pages through Opsgenie with
-# the gw.opsgenie words: the tap's create and close requests and the
-# alert as Opsgenie lists it back. A box runs a published-only
-# snapshot (the regen's default); a dev round may build with
-# --allow-staged, and that snapshot is marked dev-only and never ships.
+# Seed request for gridworks-alerter (gwalerter): the words the alerter
+# speaks, at the versions it speaks them. src/gwalerter/sema is
+# generated from this seed by scripts/regen_sema_snapshot.sh and is
+# never hand-edited.
 
 initial_targets:
   types:
@@ -22,7 +10,7 @@ initial_targets:
     layout.lite:
       versions: ["011", "012"]
     gw.alert:
-      versions: ["000"]
+      versions: ["000", "001"]
     gw.opsgenie.alert.create:
       versions: ["000"]
     gw.opsgenie.alert.close:

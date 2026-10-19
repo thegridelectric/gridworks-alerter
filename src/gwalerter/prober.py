@@ -1,37 +1,23 @@
-"""The prober: checks the fleet's broker from outside the broker path and
-raises `BrokerUnreachable` through the alerter's store.
+"""The prober: checks the fleet's broker from outside the broker path
+and raises `BrokerUnreachable` through the alerter's store.
 
 The alerter and the houses share one broker, so a broker outage is
 silent on the broker path: the alerter hears nothing and sees every
-house as silent at once. The prober is a detector that reads no broker.
-Once an interval it checks the two doors the fleet uses, as a client of
-each: an AMQPS round trip (connect, declare an exclusive auto-delete
-queue, publish one message to it through the default exchange, receive
-it back; a connect-only check passes through a memory or disk alarm that
-blocks every publisher) and an MQTT connect on the TLS listener the
-scadas use (TLS handshake, CONNECT, an accepted CONNACK; a refusal is
-the door shut, since what refuses the prober at the gate refuses every
-scada). Both doors present the prober's cert
-and one instance id, the AMQPS claims' and the MQTT client id, so the
-gate leases the prober once. The management API is not checked: it
-is a third listener that can be up while both doors are shut.
+house as silent at once. Once an interval the prober checks the two
+doors the fleet uses, as a client of each: an AMQPS round trip and
+an MQTT connect on the TLS listener the scadas use, both under the
+prober's own cert and one instance id. The management API is a third
+listener that can be up while both doors are shut, so it is not
+checked. A door that keeps failing raises one alert with the door as
+its subject, and the door's first success resolves it.
 
-A door that fails `failures_to_raise` probes running raises one
-`gw.alert` (PlatformService, BrokerUnreachable, Subject the door as
-host:port) into the store; the first success resolves it. The tap pages
-the record on its reconcile pass from the store, with no broker
-involved. A network fault at the alerts box looks the same as a broker
-fault from there, and the summary says so.
-
-The fleet being heard outranks the probe. The store's arrivals table is
-what the actor hears through the broker; while anything has arrived
-inside the last `heard_period_s`, the broker is carrying the fleet's
-data whatever the probe says, so a failing door is logged but not
-counted, nothing is raised, and an open BrokerUnreachable resolves;
-the failures that raise are the ones running while the fleet is
-unheard. A probe
-failure with the fleet heard is the prober's own (its login, its cert,
-the box's network), never the fleet's.
+The fleet being heard outranks the probe. While anything has arrived
+through the broker recently, the broker has the fleet's data whatever
+the probe says: a failing door is logged, nothing is raised, and an
+open alert resolves. A probe failure with the fleet heard is the
+prober's own: its login, its cert or the box's network. A network
+fault at the alerts box looks the same as a broker fault from there,
+and the summary says so.
 """
 
 from __future__ import annotations
@@ -82,11 +68,11 @@ class Outcome(NamedTuple):
 
 
 def probe_claims(settings: AlerterSettings, instance_id: str) -> FisConnectClaims:
-    """What the prober asserts at a cert-plus-claims connect: its own
-    alias under the alerter's (`<alias>.probe`, a Service principal of its
-    own, so its lease never contends with the alerter's), this process's
-    instance id, and the run the probe URL's vhost names."""
+    """The claims the prober connects with: its own alias under the
+    alerter's, this process's instance id, and the run the probe URL's
+    vhost names."""
     return FisConnectClaims(
+        # A principal of its own, so its lease never contends with the alerter's.
         alias=f"{settings.service_alias}.probe",
         instance_id=instance_id,
         run=settings.probe_amqp.run,
@@ -96,10 +82,9 @@ def probe_claims(settings: AlerterSettings, instance_id: str) -> FisConnectClaim
 def amqp_parameters(
     client: RabbitBrokerClient, claims: FisConnectClaims | None
 ) -> pika.URLParameters:
-    """Connection parameters for the probe. With a `tls` block: mTLS from
-    the declared cert material and the GRIDWORKS mechanism carrying
-    `claims`, the shape every gwbase actor connects with. Without one (the
-    dev broker): the URL's password credentials."""
+    """Connection parameters for the probe: with a `tls` block, mTLS from
+    the declared cert material with `claims` in the GRIDWORKS mechanism;
+    without one, the URL's password credentials."""
     params = pika.URLParameters(client.url.get_secret_value())
     params.socket_timeout = CONNECT_TIMEOUT_S
     params.blocked_connection_timeout = CONNECT_TIMEOUT_S
@@ -142,9 +127,9 @@ def amqp_round_trip(
 
 def mqtt_ssl_context(tls: RabbitTls | None) -> ssl.SSLContext:
     """The context the MQTT door handshakes with. The fleet broker's cert
-    is signed by the GridWorks CA, which no system trust store holds, so a
+    is signed by the GridWorks CA, which no system trust store has, so a
     `tls` block supplies the CA to verify against and the client cert to
-    present; without one the system trust store stands."""
+    present; without one the system trust store is used."""
     if tls is None:
         return ssl.create_default_context()
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
@@ -156,14 +141,11 @@ def mqtt_ssl_context(tls: RabbitTls | None) -> ssl.SSLContext:
 def mqtt_connack(
     host: str, port: int, *, client_id: str, context: ssl.SSLContext | None
 ) -> None:
-    """TLS handshake with `context` (None: the dev broker's plain listener),
-    MQTT 3.1.1 CONNECT with `client_id` and no username or password, read
-    a CONNACK and require it accepted (return code 0). A refused CONNACK
-    is the door shut: the gate refusing the prober (FIS down, the gate
-    broken, the lease gone) is what refuses every scada. The client id is
-    the prober's instance id: the gate reads an MQTT client id as the
-    instance id, so the prober is one instance on both doors under one
-    lease."""
+    """TLS handshake with `context` (plain when None), MQTT 3.1.1 CONNECT
+    with `client_id` and no username or password, then a CONNACK that must
+    be accepted. A refusal is the door shut: what refuses the prober at
+    the gate refuses every scada. The client id is the prober's instance
+    id, so the prober is one instance on both doors under one lease."""
     with socket.create_connection((host, port), timeout=CONNECT_TIMEOUT_S) as raw:
         sock = context.wrap_socket(raw, server_hostname=host) if context else raw
         with sock:
@@ -182,9 +164,9 @@ def mqtt_connack(
 
 
 def doors(settings: AlerterSettings) -> list[Door]:
-    """The two doors, as this process will check them. One instance id for
-    the process's life, so each probe over the gate is the same instance
-    reconnecting under its own lease, never a supersession."""
+    """The two doors as this process checks them, under one instance id
+    for the process's life, so each probe over the gate is the same
+    instance reconnecting under its own lease."""
     client = settings.probe_amqp
     instance_id = str(uuid.uuid4())
     claims = probe_claims(settings, instance_id) if client.tls is not None else None
@@ -207,8 +189,8 @@ def doors(settings: AlerterSettings) -> list[Door]:
 
 
 def amqp_door_name(url: str) -> str:
-    """The AMQP door as host:port, the Subject of its alert; never the URL,
-    which carries the credential."""
+    """The AMQP door as host:port, the Subject of its alert; the URL's
+    credential is left out."""
     params = pika.URLParameters(url)
     return f"{params.host}:{params.port}"
 
@@ -244,12 +226,11 @@ class Prober:
             return Outcome(ok=False, reason=repr(e))
 
     def tick(self) -> list[Alert]:
-        """Probe every door once; raise on the door that has failed
-        `failures_to_raise` probes running and has no alert open, resolve on
-        the first success of a door with one open. The fleet heard inside
-        the last `heard_period_s` resolves an open alert and raises none,
-        whatever the probe found. Records returned are already in the
-        store."""
+        """Probe every door once. A door that has failed enough probes
+        running with no alert open is raised; a door with one open is
+        resolved on its first success. The fleet heard recently resolves an
+        open alert and raises none, whatever the probe found. Records
+        returned are already in the store."""
         now_ms = self.clock_ms()
         heard = self.fleet_heard(now_ms)
         records: list[Alert] = []
@@ -287,7 +268,7 @@ class Prober:
 
     def fleet_heard(self, now_ms: UTCMilliseconds) -> bool:
         """Whether anything arrived from any alias inside the last heard
-        period: the broker is carrying the fleet's data."""
+        period: the broker has the fleet's data."""
         latest = self.store.latest_arrival()
         return latest is not None and now_ms - latest <= self.heard_ms
 

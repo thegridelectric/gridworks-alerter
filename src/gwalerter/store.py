@@ -1,16 +1,8 @@
-"""The alerter's sqlite store behind SQLAlchemy: the registry's forest
-projected to `g_nodes`, the latest layout per scada, a rolling window of
-readings, and the alerter's alert state.
-
-Every row in and out is a typed record: sema instances through the codec,
-or the interior records below. Which houses are tracked is not a table:
-it is every TerminalAsset in `g_nodes` under the fleet roots whose status
-is Pending or Active (`TRACKED_STATUSES`): a house pages from the day it
-reports, before the registry settles its position; a Suspended house is
-out of service on purpose and does not page. The
-`HouseRecord` here is the interim for a sema liveness record word (one per
-scada: last heard, mode, live flag); when that word is published the store
-holds instances of it and this record goes.
+"""The alerter's store, one sqlite file: what the rules read (the
+registry's forest, each scada's latest layout, a window of readings,
+when each sender was last heard) and the alert state the rules and the
+tap share. Every row in and out is a typed record, a sema instance
+through the codec or one of the interior records below.
 """
 
 from __future__ import annotations
@@ -49,6 +41,7 @@ from gwalerter.sema.property_format import (
 )
 from gwalerter.sema.types import (
     Alert,
+    ChannelReadings,
     GNodeForest,
     GNodeGt,
     HackAlertSilences,
@@ -63,6 +56,8 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 TERMINAL_ASSET_CLASS = "TerminalAsset"
 # The registry statuses of a house that pages; Suspended and
 # PermanentlyDeactivated houses do not.
+# A house pages from the day it reports, before the registry settles its
+# position; a Suspended house is out of service on purpose and does not.
 TRACKED_STATUSES = (GNodeStatus.Pending, GNodeStatus.Active)
 TERMINAL_ASSET_SUFFIX = ".ta"
 
@@ -82,8 +77,9 @@ class Reading(NamedTuple):
 
 
 class HouseRecord(NamedTuple):
-    """One scada the store has heard from and when: the latest arrival
-    of a report or a layout."""
+    """One scada the store has readings from and when its latest report
+    arrived. The interim for a sema liveness record word; when that word
+    is published the store holds instances of it and this record goes."""
 
     alias: LeftRightDot
     last_heard_ms: UTCMilliseconds
@@ -276,31 +272,47 @@ class Store:
         return None if ms is None else UTC_MS.validate_python(ms)
 
     def houses(self) -> list[HouseRecord]:
-        """Every scada heard from, with last-heard as a query over readings
-        and layouts: the latest arrival of either."""
+        """Every scada with readings in the window and the arrival time of
+        its latest report, as a query over the readings."""
         with self.lock, self.session() as s:
-            heard: dict[str, int] = {
-                alias: ms
-                for alias, ms in s.execute(
-                    select(
-                        ReadingSql.scada_alias, func.max(ReadingSql.received_ms)
-                    ).group_by(ReadingSql.scada_alias)
-                )
-            }
-            layouts: dict[str, int] = {
-                alias: ms
-                for alias, ms in s.execute(
-                    select(LayoutSql.scada_alias, LayoutSql.received_ms)
-                )
-            }
+            rows = s.execute(
+                select(ReadingSql.scada_alias, func.max(ReadingSql.received_ms))
+                .group_by(ReadingSql.scada_alias)
+                .order_by(ReadingSql.scada_alias)
+            ).all()
         return [
             HouseRecord(
                 alias=LRD.validate_python(alias),
-                last_heard_ms=UTC_MS.validate_python(
-                    max(v for v in (heard.get(alias), layouts.get(alias)) if v)
-                ),
+                last_heard_ms=UTC_MS.validate_python(ms),
             )
-            for alias in sorted(set(heard) | set(layouts))
+            for alias, ms in rows
+        ]
+
+    def report_readings(
+        self, scada_alias: LeftRightDot, *, received_ms: UTCMilliseconds
+    ) -> list[ChannelReadings]:
+        """The readings that arrived from `scada_alias` at `received_ms`,
+        one `ChannelReadings` per channel in read order; empty when nothing
+        arrived then."""
+        with self.lock, self.session() as s:
+            rows = s.scalars(
+                select(ReadingSql)
+                .where(
+                    ReadingSql.scada_alias == scada_alias,
+                    ReadingSql.received_ms == received_ms,
+                )
+                .order_by(ReadingSql.channel, ReadingSql.read_ms)
+            ).all()
+        by_channel: dict[str, list[Reading]] = {}
+        for row in rows:
+            by_channel.setdefault(row.channel, []).append(self.reading(row))
+        return [
+            ChannelReadings(
+                channel_name=SH_NAME.validate_python(channel),
+                value_list=[r.value for r in readings],
+                scada_read_time_unix_ms_list=[r.read_ms for r in readings],
+            )
+            for channel, readings in by_channel.items()
         ]
 
     def layout(self, scada_alias: LeftRightDot) -> LayoutLite | None:
@@ -385,8 +397,8 @@ class Store:
             s.commit()
 
     def update_alert(self, firing: Alert) -> None:
-        """Rewrite the `Firing` record of an open alert, same `AlertId`: the
-        summary moved while the alert stayed open."""
+        """Replace the `Firing` record of the open alert with `firing`'s
+        `AlertId`. KeyError when no alert with that id is open."""
         if firing.state is not AlertState.Firing:
             raise ValueError(
                 f"update_alert takes a Firing record; got {firing.state.value}"
@@ -395,6 +407,7 @@ class Store:
             row = s.get(AlertSql, firing.alert_id)
             if row is None or row.resolved_ms is not None:
                 raise KeyError(f"no open alert {firing.alert_id} to update")
+            row.kind = firing.kind.value
             row.payload = firing.to_dict()
             s.commit()
 

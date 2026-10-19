@@ -1,23 +1,13 @@
-"""The NoData rule: a tracked house that has sent nothing for longer than
-the silence threshold is raised once, and the first arrival from it clears
-the alert with that arrival as the evidence.
+"""Checks for three conditions, all having to do with no readings making it
+up to the journalDB from a particular scada. These readings come from
+report.events. The scadas will stop sending report.events (but will keep
+sending snapshots) if they are not communicating with their LTN. So there
+are three types of alerts:
 
-Last-heard is the store's query (latest arrival of a reading or a
-layout), floored at the alerter's own boot time: a house the alerter has
-not yet heard from since it booted is silent from boot, not from the
-beginning of time, so a fresh alerter gives every house one threshold to
-speak before paging. Open-alert state lives in the store, which is what
-makes a restart neither re-raise nor forget.
-
-While a `BrokerUnreachable` alert is open in the store (the prober's
-finding), every house is silent for the same reason and that one alert
-says so: the rule raises no NoData. When the last one resolves, the floor
-moves to that moment, so each house gets one threshold to reconnect
-before it pages.
-
-The summary names the cause from whether the house's scada and LTN have
-each been heard at all inside `heard_period_ms` times `NYQUIST`; the
-four clauses are in `CAUSE_CLAUSES`, re-read on every tick.
+  - ScadaSilent: nothing heard from the scada inside the fresh window.
+  - LtnSilent: scada speaking, LTN not. The scada sends no reports without
+    an LTN.
+  - NoData: both speaking, no reports arriving.
 """
 
 from __future__ import annotations
@@ -33,8 +23,8 @@ from gwalerter.sema.enums import (
     PlatformAlertKind,
 )
 from gwalerter.sema.property_format import LeftRightDot, UTCMilliseconds
-from gwalerter.sema.types import Alert, ChannelReadings
-from gwalerter.store import Store, parent_alias
+from gwalerter.sema.types import Alert
+from gwalerter.store import HouseRecord, Store, parent_alias
 
 SCADA_SUFFIX = ".scada"
 
@@ -42,25 +32,22 @@ SCADA_SUFFIX = ".scada"
 # twice that, with a little slack for jitter.
 NYQUIST = 2.1
 
-# A party is "speaking" when anything arrived from it inside the window,
-# whatever the message; a house is its LTN and its scada.
-# The Summary's clause by cause, `{d}` the silence in minutes; the alias
-# follows in parens. A silent scada reads the same whether or not the LTN
-# is silent too: the page is about the scada either way.
-CAUSE_CLAUSES: dict[str, str] = {
-    "scada_silent": "scada silent for {d}",
-    "ltn_silent": "ltn silent for {d}; scada does not send up reports with no ltn",
-    "both_speaking": "no reports for {d}, scada and ltn both speaking",
+# The kinds this rule raises; at most one is open per house.
+SILENCE_KINDS = (
+    HouseAlertKind.ScadaSilent,
+    HouseAlertKind.LtnSilent,
+    HouseAlertKind.NoData,
+)
+
+# The Summary by kind, `{d}` the silence in minutes; the alias follows in
+# parens.
+SUMMARIES: dict[HouseAlertKind, str] = {
+    HouseAlertKind.ScadaSilent: "scada silent for {d}",
+    HouseAlertKind.LtnSilent: (
+        "ltn silent for {d}; scada does not send up reports with no ltn"
+    ),
+    HouseAlertKind.NoData: "no reports for {d}, scada and ltn both speaking",
 }
-
-
-def summary_cause(summary: str) -> str | None:
-    """The cause a NoData Summary was written for, read off its opening
-    words; None for a Summary no clause produced."""
-    for cause, template in CAUSE_CLAUSES.items():
-        if summary.startswith(template.split("{d}")[0]):
-            return cause
-    return None
 
 
 class NoDataRule:
@@ -81,80 +68,102 @@ class NoDataRule:
         self.broker_down = False
 
     def evaluate(self, now_ms: UTCMilliseconds) -> list[Alert]:
-        """Raise NoData on every tracked house silent past the threshold
-        that has no NoData alert open; each `Firing` record is recorded in
-        the store before it is returned. An open alert whose cause clause
-        has moved is rewritten in the store and returned again under its
-        `AlertId`. Nothing is raised while the broker is down, and the
-        floor moves to the moment it comes back."""
+        """One tick over the store. An open silence alert whose house has a
+        report arrived since the raise is resolved, with that report's
+        readings as evidence. Then every tracked house silent past the
+        threshold with no silence alert open is raised, and an open alert
+        whose kind has moved is rewritten under its `AlertId`. Each record
+        is recorded in the store before it is returned. Nothing is raised
+        or rewritten while the broker is down, and the floor moves to the
+        moment it comes back."""
+        heard: dict[str, HouseRecord] = {}
+        for record in self.store.houses():
+            house = self.store.tracked_house_of(record.alias)
+            if house is not None:
+                heard[house.alias] = record
+        records: list[Alert] = []
+        for house in self.store.tracked_houses():
+            record = heard.get(house.alias)
+            open_alert = self.open_silence(house.alias)
+            if (
+                record is None
+                or open_alert is None
+                or record.last_heard_ms <= open_alert.raised_ms
+            ):
+                continue
+            resolved = self.resolved(
+                open_alert,
+                scada_alias=record.alias,
+                arrival_ms=record.last_heard_ms,
+            )
+            self.store.clear_alert(resolved)
+            records.append(resolved)
         broker_down = self.broker_unreachable()
         if self.broker_down and not broker_down:
             self.heard_floor_ms = now_ms
         self.broker_down = broker_down
         if broker_down:
-            return []
-        heard: dict[str, UTCMilliseconds] = {}
-        for record in self.store.houses():
-            house = self.store.tracked_house_of(record.alias)
-            if house is not None and record.last_heard_ms is not None:
-                heard[house.alias] = record.last_heard_ms
-        raised: list[Alert] = []
+            return records
         for house in self.store.tracked_houses():
-            last = max(heard.get(house.alias, 0), self.heard_floor_ms)
+            record = heard.get(house.alias)
+            last = max(record.last_heard_ms if record else 0, self.heard_floor_ms)
             if now_ms - last < self.silence_ms:
                 continue
-            cause = self.cause(house.alias, now_ms)
-            open_alert = self.open_no_data(house.alias)
+            kind = self.cause(house.alias, now_ms)
+            open_alert = self.open_silence(house.alias)
             if open_alert is not None:
-                if summary_cause(open_alert.summary) == cause:
+                if open_alert.kind is kind:
                     continue
                 updated = self.firing(
                     house.alias,
+                    kind=kind,
                     alert_id=open_alert.alert_id,
                     raised_ms=open_alert.raised_ms,
                     silent_ms=now_ms - last,
-                    cause=cause,
                 )
                 self.store.update_alert(updated)
-                raised.append(updated)
+                records.append(updated)
                 continue
             alert = self.firing(
                 house.alias,
+                kind=kind,
                 alert_id=str(uuid.uuid4()),
                 raised_ms=now_ms,
                 silent_ms=now_ms - last,
-                cause=cause,
             )
             self.store.raise_alert(alert)
-            raised.append(alert)
-        return raised
+            records.append(alert)
+        return records
 
     def firing(
         self,
         house_alias: LeftRightDot,
         *,
+        kind: HouseAlertKind,
         alert_id: str,
         raised_ms: UTCMilliseconds,
         silent_ms: int,
-        cause: str,
     ) -> Alert:
-        clause = CAUSE_CLAUSES[cause].format(d=minutes(silent_ms))
         return Alert(
             src=self.src,
             category=AlertCategory.House,
-            kind=HouseAlertKind.NoData,
+            kind=kind,
             state=AlertState.Firing,
             about_g_node_alias=house_alias,
             alert_id=alert_id,
             raised_ms=raised_ms,
-            summary=f"{clause} ({house_alias})",
+            summary=f"{SUMMARIES[kind].format(d=minutes(silent_ms))} ({house_alias})",
             evidence=[],
         )
 
-    def cause(self, house_alias: LeftRightDot, now_ms: UTCMilliseconds) -> str:
-        """Which of the house's two parties are speaking now, as a
-        `CAUSE_CLAUSES` key: the LTN is the terminal asset's parent alias,
-        the scada its `.scada` sibling."""
+    def cause(
+        self, house_alias: LeftRightDot, now_ms: UTCMilliseconds
+    ) -> HouseAlertKind:
+        """The kind to raise for the house (`house_alias` is its
+        TerminalAsset GNode), from which of its two parties, the scada
+        and the LTN, has been heard inside the fresh window. A silent
+        scada is `ScadaSilent` whether or not the LTN is silent too: the
+        page is about the scada either way."""
         ltn = parent_alias(house_alias)
         scada = ltn + SCADA_SUFFIX
 
@@ -164,52 +173,46 @@ class NoDataRule:
 
         match speaking(scada), speaking(ltn):
             case False, _:
-                return "scada_silent"
+                return HouseAlertKind.ScadaSilent
             case True, False:
-                return "ltn_silent"
+                return HouseAlertKind.LtnSilent
             case _:
-                return "both_speaking"
+                return HouseAlertKind.NoData
 
-    def on_arrival(
+    def resolved(
         self,
-        scada_alias: LeftRightDot,
+        open_alert: Alert,
         *,
+        scada_alias: LeftRightDot,
         arrival_ms: UTCMilliseconds,
-        evidence: list[ChannelReadings],
-    ) -> Alert | None:
-        """A message from a scada: if its tracked house has a NoData alert
-        open, resolve it with this arrival as the evidence (the report's
-        readings; empty for a layout)."""
-        house = self.store.tracked_house_of(scada_alias)
-        if house is None:
-            return None
-        open_alert = self.open_no_data(house.alias)
-        if open_alert is None:
-            return None
-        resolved = resolved_of(
+    ) -> Alert:
+        """The `Resolved` record for `open_alert`: `ResolvedMs` is the
+        arrival of the report that ended the silence and the evidence is
+        that report's readings from the store."""
+        return resolved_of(
             open_alert,
             resolved_ms=arrival_ms,
             # Since the last data: the alert was raised one silence after it.
             summary=(
                 f"data again after "
                 f"{minutes(arrival_ms - open_alert.raised_ms + self.silence_ms)} "
-                f"({house.alias})"
+                f"({open_alert.about_g_node_alias})"
             ),
-            evidence=evidence,
+            evidence=self.store.report_readings(scada_alias, received_ms=arrival_ms),
         )
-        self.store.clear_alert(resolved)
-        return resolved
 
-    def open_no_data(self, house_alias: LeftRightDot) -> Alert | None:
-        return self.store.open_alert(
-            AlertCategory.House,
-            HouseAlertKind.NoData,
-            about_g_node_alias=house_alias,
-        )
+    def open_silence(self, house_alias: LeftRightDot) -> Alert | None:
+        """The house's open alert of any silence kind, if one is."""
+        for kind in SILENCE_KINDS:
+            open_alert = self.store.open_alert(
+                AlertCategory.House, kind, about_g_node_alias=house_alias
+            )
+            if open_alert is not None:
+                return open_alert
+        return None
 
     def broker_unreachable(self) -> bool:
-        """Whether the prober holds a BrokerUnreachable alert open on any
-        door."""
+        """Whether a BrokerUnreachable alert is open on any door."""
         return any(
             alert.kind is PlatformAlertKind.BrokerUnreachable
             for alert in self.store.open_alerts()

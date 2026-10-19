@@ -4,7 +4,7 @@ from gwalerter.sema.enums.gw_str_enum import SemaEnum
 
 
 class HouseAlertKind(SemaEnum):
-    """Sema: https://schemas.electricity.works/enums/gw.house.alert.kind/000"""
+    """Sema: https://schemas.electricity.works/enums/gw.house.alert.kind/001"""
 
     Unknown = auto()
     NoData = auto()
@@ -17,6 +17,8 @@ class HouseAlertKind(SemaEnum):
     HpNotResponding = auto()
     HpRunningOnpeak = auto()
     LocalControlActive = auto()
+    ScadaSilent = auto()
+    LtnSilent = auto()
 
     @classmethod
     def default(cls) -> "HouseAlertKind":
@@ -32,4 +34,4 @@ class HouseAlertKind(SemaEnum):
 
     @classmethod
     def enum_version(cls) -> str:
-        return "000"
+        return "001"

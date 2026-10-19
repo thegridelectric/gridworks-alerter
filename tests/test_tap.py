@@ -176,7 +176,7 @@ def test_firing_maps_to_a_create_word_aliased_by_its_id() -> None:
     word = firing()
     create = to_opsgenie(word, display_name="Spruce (Millinocket)", team_id=TEAM)
     assert create.alias == word.alert_id
-    assert create.message == "[Spruce] No data from spruce"
+    assert create.message == "[spruce] [NoData] No data from spruce"
     assert create.entity == f"{HOUSE}.ta"
     assert create.source == "d1.alerts"
     assert create.tags == ["House", "NoData"]
@@ -472,7 +472,7 @@ def test_listed_alert_reads_opsgenies_shape() -> None:
     assert listed.alias == word.alert_id
     assert listed.opsgenie_id == f"id-{word.alert_id[:8]}"
     assert listed.tiny_id == "41"
-    assert listed.message.startswith("[Spruce] ")
+    assert listed.message.startswith("[spruce] [NoData] ")
     assert listed.status is OpsgenieAlertStatus.Open
     assert listed.acknowledged is True
     assert listed.acknowledged_by == "jess@example.org"

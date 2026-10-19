@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # regen_sema_snapshot.sh — regenerate gwalerter's vendored Sema snapshot
-# (src/gwalerter/sema) from the canonical sema repo. The seed it consumes is
+# (src/gwalerter/sema) from the canonical sema repo. Instance of sema's
+# template_regen_snapshot.sh; the seed it consumes is
 # src/gwalerter/sema_seed_request.yaml.
 #
 # The vendored tree is GENERATED — never hand-edit it; edit the seed (or the
