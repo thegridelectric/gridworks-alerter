@@ -13,7 +13,7 @@ from gwalerter.sema.types.channel_readings import ChannelReadings
 
 
 class Alert(SemaType):
-    """Sema: https://schemas.electricity.works/types/gw.alert/000"""
+    """Sema: https://schemas.electricity.works/types/gw.alert/001"""
 
     src: LeftRightDot
     category: AlertCategory
@@ -27,7 +27,7 @@ class Alert(SemaType):
     summary: str
     evidence: list[ChannelReadings] | None = None
     type_name: Literal["gw.alert"] = "gw.alert"
-    version: Literal["000"] = "000"
+    version: Literal["001"] = "001"
 
     @staticmethod
     def kind_enum_for(

@@ -22,7 +22,7 @@ initial_targets:
     layout.lite:
       versions: ["011", "012"]
     gw.alert:
-      versions: ["000"]
+      versions: ["000", "001"]
     gw.opsgenie.alert.create:
       versions: ["000"]
     gw.opsgenie.alert.close:

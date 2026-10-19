@@ -1,4 +1,4 @@
-from typing import Literal, Self
+from typing import Literal
 from pydantic import model_validator
 from gwalerter.sema.base import SemaType
 from gwalerter.sema.enums import GNodeStatus

@@ -1,0 +1,13 @@
+{
+  "TypeName": "gw.alert",
+  "Version": "001",
+  "Src": "hw1.alerts",
+  "Category": "House",
+  "Kind": "NoData",
+  "State": "Firing",
+  "AlertId": "99af8401-9c4a-4ab9-a584-a96ca8f09b46",
+  "AboutGNodeAlias": "hw1.isone.me.versant.keene.oak.ta",
+  "RaisedMs": 1792090806438,
+  "Summary": "ltn silent for 10.1 minutes; scada does not send up reports with no ltn (hw1.isone.me.versant.keene.oak.ta)",
+  "Evidence": []
+}

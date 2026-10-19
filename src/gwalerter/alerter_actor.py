@@ -1,32 +1,14 @@
-"""AlerterActor — the house alerter on the fleet broker.
+"""The alerter: a production-tier actor with its own login on the
+production rabbit broker. It hears everything the fleet sends, through
+the audit exchange (ear_tx), and raises gw.alert words about houses that
+need a person.
 
-An Orchestrator-tier actor of transport class Alerter: it broadcasts its
-alert words on its own mic exchange, and it also taps the audit exchange
-the way JournalKeeper does (bind everything, keep the tracked types off
-the parsed envelope), decodes each body through the vendored snapshot,
-and hands the typed instance to the store: readings and layouts from the
-scadas, the registry's forest broadcasts into the projection. The body
-is the bare sema type whatever the routing category: gwbase opens a
-`gw` envelope before `process_message` runs. A scada heard from that reports for no
-tracked house is logged once per boot.
-
-The detectors run on their own thread at `detector_tick_s`, only while
-the actor is consuming: while it is deaf every house looks silent for
-the actor's own reason, and there is nothing to detect. Each time
-consuming starts (boot and every reconnect) the NoData rule's last-heard
-floor moves to that moment, so a house gets one silence threshold to be
-heard before it pages. Each `gw.alert` record a rule makes is recorded
-in the store, where the tap pages it, and broadcast on the mic exchange
-with the alias it is about as the radio channel: the house for a House
-alert, so a manager can bind by house, else the alerter's own alias.
-Arrivals resolve on the consumer thread, in dispatch.
-
-The silences file (`silences_path`, one `gw.hack.alert.silences`
-instance) is the list of houses whose open alerts the tap does not
-page. It is loaded into the store at init and re-read on every detector
-tick; a change replaces the store's list and the snapshot is broadcast
-on the mic exchange, as it is once when consuming starts. Detection is
-untouched by a silence.
+What the house checks read (readings, layouts, the registry's forest)
+goes into its store, a local sqlite database. The detectors run on a
+timer while the actor is consuming; each alert they raise is recorded
+in the store and broadcast on the mic exchange with the house as the
+radio channel. The silences file lists the houses whose alerts are not
+paged; detection ignores it.
 """
 
 from __future__ import annotations
@@ -48,7 +30,6 @@ from gwalerter.sema.codec import SemaCodec, default_codec
 from gwalerter.sema.property_format import UTCMilliseconds
 from gwalerter.sema.types import (
     Alert,
-    ChannelReadings,
     GNodeForest,
     HackAlertSilences,
     LayoutLite,
@@ -110,10 +91,10 @@ class AlerterActor(Orchestrator):
         self.detector_thread.start()
 
     def local_rabbit_startup(self) -> None:
-        """Tap the audit exchange with `#`, beside the class binding the
-        Orchestrator tier makes; the tracked-type gate is in dispatch, off
-        the parsed envelope, because routing-key grammar is transport
-        knowledge, not the alerter's."""
+        """Bind the queue to the audit exchange (ear_tx) with `#`, so every
+        message on the broker arrives. Which types to decode is decided in
+        dispatch from the parsed envelope, since the routing-key grammar
+        belongs to the transport."""
         self.logger.info(
             "Binding queue %s to %s with routing key #", self.queue_name, EAR_EXCHANGE
         )
@@ -122,8 +103,8 @@ class AlerterActor(Orchestrator):
         self.announce_silences()
 
     def hearing_resumed(self) -> None:
-        """Consuming has started: the silence until now was the actor's own
-        deafness, not a house's, so last-heard is floored at this moment."""
+        """Consuming has started: until now the actor was deaf, so no house's
+        silence counts before this moment."""
         self.no_data.heard_floor_ms = self.clock_ms()
 
     def local_stop(self) -> None:
@@ -188,8 +169,8 @@ class AlerterActor(Orchestrator):
         return word is not None and self.store.replace_silences(word)
 
     def refresh_silences(self) -> None:
-        """On the detector tick: a changed file replaces the store's list
-        and the new snapshot is broadcast."""
+        """A changed silences file replaces the store's list, and the new
+        snapshot is broadcast."""
         if self.load_silences():
             self.announce_silences()
 
@@ -213,9 +194,9 @@ class AlerterActor(Orchestrator):
 
     def emit(self, word: Alert) -> None:
         """Broadcast an alert record on the mic exchange, keyed by the alias
-        it is about (`AboutGNodeAlias`, else `Src`). Best-effort by gwbase
-        contract; the store already holds the record, so a failed send is
-        logged, not retried."""
+        it is about (`AboutGNodeAlias`, else `Src`). A failed send is logged
+        and dropped: the store already holds the record, and gwbase sends
+        are best-effort."""
         about = word.about_g_node_alias or word.src
         self.logger.info(
             "%s %s %s on %s (%s)",
@@ -258,17 +239,9 @@ class AlerterActor(Orchestrator):
         if isinstance(message, (ReportEvent, ReportEvent002, ReportEvent003)):
             self.store.record_report(message, received_ms=received_ms)
             self.note_untracked(message.src)
-            self.clear_on_arrival(
-                message.src,
-                arrival_ms=received_ms,
-                evidence=message.report.channel_reading_list,
-            )
         elif isinstance(message, (LayoutLite, LayoutLite011)):
             self.store.record_layout(message, received_ms=received_ms)
             self.note_untracked(message.from_g_node_alias)
-            self.clear_on_arrival(
-                message.from_g_node_alias, arrival_ms=received_ms, evidence=[]
-            )
         elif isinstance(message, GNodeForest):
             self.store.upsert_forest(message)
         else:
@@ -277,19 +250,6 @@ class AlerterActor(Orchestrator):
                 envelope.type_name,
                 type(message).__name__,
             )
-
-    def clear_on_arrival(
-        self,
-        scada_alias: str,
-        *,
-        arrival_ms: UTCMilliseconds,
-        evidence: list[ChannelReadings],
-    ) -> None:
-        resolved = self.no_data.on_arrival(
-            scada_alias, arrival_ms=arrival_ms, evidence=evidence
-        )
-        if resolved is not None:
-            self.emit(resolved)
 
     def note_untracked(self, scada_alias: str) -> None:
         """A scada sending data with no tracked house behind it: a forgotten

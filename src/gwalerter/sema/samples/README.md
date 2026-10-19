@@ -5,15 +5,10 @@ an `examples:` block. Generated from the authored examples (never edited
 by hand) and consumed by `roundtrip.py`. A type version without a sample
 is silently untested by the round-trip, so its absence is recorded here.
 
-Coverage: **33 of 41** seeded type versions have a sample.
+Coverage: **39 of 42** seeded type versions have a sample.
 
 Seeded type versions lacking a sample (no `examples:`):
 
 - `fsm.full.report.001`
-- `gw.alert.000`
-- `gw.hack.alert.silences.000`
 - `gw.opsgenie.alert.000`
-- `gw.opsgenie.alert.close.000`
-- `gw.opsgenie.alert.create.000`
 - `machine.states.000`
-- `spaceheat.telemetry.quantity.projection.000`

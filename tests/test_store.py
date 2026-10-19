@@ -51,11 +51,27 @@ def test_layout_round_trips_and_survives_reopen(tmp_path: Path) -> None:
     store.close()
 
     reopened = Store.open(url, readings_window_s=60, fleet_roots=[])
-    (house,) = reopened.houses()
-    assert house.alias == layout.from_g_node_alias
-    assert house.last_heard_ms == 1_800_000_000_000
+    assert reopened.houses() == []
     assert reopened.layout(layout.from_g_node_alias) == layout
     assert reopened.layout("d1.nowhere.scada") is None
+
+
+def test_report_readings_regroup_by_channel(store: Store) -> None:
+    event = report_event()
+    arrival = 1_800_000_000_000
+    store.record_report(event, received_ms=arrival)
+    store.record_report(event, received_ms=arrival + 1)
+    readings = store.report_readings(event.src, received_ms=arrival)
+    assert sorted(r.channel_name for r in readings) == sorted(
+        c.channel_name for c in event.report.channel_reading_list
+    )
+    by_name = {c.channel_name: c for c in event.report.channel_reading_list}
+    for got in readings:
+        sent = by_name[got.channel_name]
+        assert sorted(zip(got.value_list, got.scada_read_time_unix_ms_list)) == sorted(
+            zip(sent.value_list, sent.scada_read_time_unix_ms_list)
+        )
+    assert store.report_readings(event.src, received_ms=arrival - 1) == []
 
 
 def test_last_heard_never_moves_backwards(store: Store) -> None:

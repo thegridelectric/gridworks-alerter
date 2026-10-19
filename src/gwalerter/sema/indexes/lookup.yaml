@@ -64,9 +64,10 @@ types:
     versions:
       '006': definitions/types/g.node.gt/006.yaml
   gw.alert:
-    latest_version: '000'
+    latest_version: '001'
     versioning_strategy: literal
     versions:
+      '001': definitions/types/gw.alert/001.yaml
       '000': definitions/types/gw.alert/000.yaml
   gw.hack.alert.silences:
     latest_version: '000'
@@ -203,8 +204,9 @@ enums:
       '000': definitions/enums/gw.fleet.alert.kind/000.yaml
   gw.house.alert.kind:
     enum_type: versioned
-    latest_version: '000'
+    latest_version: '001'
     versions:
+      '001': definitions/enums/gw.house.alert.kind/001.yaml
       '000': definitions/enums/gw.house.alert.kind/000.yaml
   gw.opsgenie.alert.status:
     enum_type: literal
