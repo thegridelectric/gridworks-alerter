@@ -80,6 +80,11 @@ class AlerterSettings(ServiceSettings):
     # page waits (a local sqlite read; seconds, against thresholds that
     # are minutes).
     tap_reconcile_s: int = 10
+    # How often the tap reads the listing of what Opsgenie holds open from
+    # this alerter: the longest a tap restart, a failed close or a close
+    # made by hand goes unseen. Between listings, creates and closes keep
+    # the told set, so a page never waits on this.
+    tap_listing_s: int = 300
 
     # The prober (`gwalerter probe`): the two broker doors it checks as a
     # client, the AMQP broker client (URL, and with a `tls` block its own

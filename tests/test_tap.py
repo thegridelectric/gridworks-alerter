@@ -86,6 +86,16 @@ class Request(NamedTuple):
     body: dict
 
 
+class Clock:
+    """A wall clock the test moves by hand."""
+
+    def __init__(self, ms: int) -> None:
+        self.ms = ms
+
+    def __call__(self) -> int:
+        return self.ms
+
+
 def listing_item(
     alias: str, body: dict, created_at: str = "2026-10-15T19:00:11.482Z"
 ) -> dict:
@@ -124,6 +134,7 @@ class RecordingOpsgenie:
         self.open: dict[str, dict] = {}
         self.refuse = refuse
         self.listing_fails = False
+        self.listings = 0
 
     def holds(self, word: Alert) -> None:
         """Opsgenie already has this alert open, from an earlier tap."""
@@ -137,6 +148,7 @@ class RecordingOpsgenie:
                 raise httpx.ConnectError("connection refused", request=request)
             assert request.headers["Authorization"] == "GenieKey key-0000"
             if request.method == "GET":
+                self.listings += 1
                 if self.listing_fails:
                     return httpx.Response(503, json={"message": "down"})
                 assert request.url.path == "/v2/alerts"
@@ -434,13 +446,16 @@ def test_a_close_made_by_hand_is_undone_while_the_condition_holds(
     settings: AlerterSettings, store: Store
 ) -> None:
     """A person closes the alert in Opsgenie while the store still holds
-    it open: the next pass no longer lists it and creates it again."""
+    it open: the next listing no longer has it and the pass creates it
+    again."""
     word = firing()
     store.raise_alert(word)
     og = RecordingOpsgenie()
-    t = tap(settings, store, og)
+    clock = Clock(T0 + 60_000)
+    t = tap(settings, store, og, wall_ms=clock)
     t.reconcile()
     og.open.pop(word.alert_id)
+    clock.ms += settings.tap_listing_s * 1000
     t.reconcile()
     assert og.verbs() == [("create", word.alert_id), ("create", word.alert_id)]
 
@@ -460,6 +475,29 @@ def test_a_failed_listing_keeps_the_told_set(
     t.reconcile()
     assert og.verbs() == [("create", word.alert_id)]
     assert t.told == {word.alert_id}
+    assert og.listings == 2
+
+
+def test_the_listing_is_read_on_its_own_cadence(
+    settings: AlerterSettings, store: Store
+) -> None:
+    """The first pass reads the listing; the passes that follow read the
+    store alone and the told set stands as creates and closes left it,
+    until tap_listing_s has passed and the listing is read again."""
+    word = firing()
+    store.raise_alert(word)
+    og = RecordingOpsgenie()
+    clock = Clock(T0 + 60_000)
+    t = tap(settings, store, og, wall_ms=clock)
+    t.reconcile()
+    t.reconcile()
+    t.reconcile()
+    assert og.listings == 1
+    assert og.verbs() == [("create", word.alert_id)]
+    clock.ms += settings.tap_listing_s * 1000
+    t.reconcile()
+    assert og.listings == 2
+    assert og.verbs() == [("create", word.alert_id)]
 
 
 def test_listed_alert_reads_opsgenies_shape() -> None:
