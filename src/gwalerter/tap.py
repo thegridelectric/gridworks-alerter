@@ -310,10 +310,13 @@ class Tap:
         )
         self.wall_ms = wall_ms
         self.reconcile_s = settings.tap_reconcile_s
+        self.listing_s = settings.tap_listing_s
         self.src = settings.service_alias
         # The aliases Opsgenie holds open from this alerter: the listing
         # when it can be read, else the last one kept by creates and closes.
         self.told: set[str] = set()
+        # When the listing was last read; None until the first read.
+        self.listed_ms: int | None = None
         self.stop_event = threading.Event()
         self.logger = logging.getLogger(__name__)
 
@@ -327,13 +330,23 @@ class Tap:
         if self.opsgenie.close(close):
             self.told.discard(close.alias)
 
+    def listing_due(self) -> bool:
+        """The listing is read at the first pass and then every
+        listing_s; one that could not be read is tried again next pass."""
+        if self.listed_ms is None:
+            return True
+        return self.wall_ms() - self.listed_ms >= self.listing_s * 1000
+
     def reconcile(self) -> None:
         """One pass: Opsgenie's open alerts are made to match the store's
         open alerts about unsilenced houses, with Opsgenie's listing as
-        what it holds."""
-        listed = self.opsgenie.list_open(self.src)
-        if listed is not None:
-            self.told = {alert.alias for alert in listed}
+        what it holds when the listing is due, else the told set as
+        creates and closes left it."""
+        if self.listing_due():
+            listed = self.opsgenie.list_open(self.src)
+            if listed is not None:
+                self.told = {alert.alias for alert in listed}
+                self.listed_ms = self.wall_ms()
         silenced = set(self.store.silenced_aliases())
         store_open = {word.alert_id: word for word in self.store.open_alerts()}
         paged = {
