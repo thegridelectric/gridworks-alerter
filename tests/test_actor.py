@@ -20,7 +20,7 @@ from gwalerter.alerter_actor import AlerterActor
 from gwalerter.config import AlerterSettings
 from gwalerter.sema.types import HackAlertSilences
 from gwalerter.store import Store
-from tests.conftest import sample
+from tests.conftest import layout_sample, sample
 
 
 def wrapped(
@@ -83,7 +83,7 @@ def test_report_counts_at_its_sent_version(
 
 
 def test_layout_lite_reaches_the_store(settings: AlerterSettings, store: Store) -> None:
-    payload = sample("layout.lite.012.json")
+    payload = layout_sample()
     envelope, body = wrapped("layout.lite", payload)
     actor(settings, store).dispatch_message(envelope=envelope, body=body)
     layout = store.layout(payload["FromGNodeAlias"])
@@ -91,17 +91,15 @@ def test_layout_lite_reaches_the_store(settings: AlerterSettings, store: Store) 
     assert layout.from_g_node_alias == payload["FromGNodeAlias"]
 
 
-def test_layout_lite_011_is_stored_at_its_sent_version(
+def test_layout_lite_at_another_version_is_dropped(
     settings: AlerterSettings, store: Store
 ) -> None:
-    """The fleet on main sends layout.lite 011; it is stored as sent, like
-    a report at an older version."""
-    payload = sample("layout.lite.011.json")
+    """The snapshot has the one layout.lite version the fleet sends; a
+    layout at any other version is logged and not stored."""
+    payload = {**layout_sample(), "Version": "012"}
     envelope, body = wrapped("layout.lite", payload)
     actor(settings, store).dispatch_message(envelope=envelope, body=body)
-    layout = store.layout(payload["FromGNodeAlias"])
-    assert layout is not None
-    assert layout.from_g_node_alias == payload["FromGNodeAlias"]
+    assert store.layout(payload["FromGNodeAlias"]) is None
 
 
 def test_untracked_type_is_ignored(settings: AlerterSettings, store: Store) -> None:

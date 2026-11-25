@@ -12,7 +12,7 @@ import pytest
 
 from gwalerter.config import AlerterSettings
 from gwalerter.sema.property_format import LeftRightDot, UTCMilliseconds
-from gwalerter.sema.types import ChannelReadings, Report, ReportEvent
+from gwalerter.sema.types import ChannelReadings, LayoutLite, Report, ReportEvent
 from gwalerter.store import Store
 
 SAMPLES = Path(__file__).resolve().parents[1] / "src" / "gwalerter" / "sema" / "samples"
@@ -67,6 +67,11 @@ def store(tmp_path: Path) -> Store:
 
 def sample(name: str) -> dict:
     return json.loads((SAMPLES / name).read_text())
+
+
+def layout_sample() -> dict:
+    """The snapshot's layout.lite sample, at the one version it has."""
+    return sample(f"layout.lite.{LayoutLite.version_value()}.json")
 
 
 BASE_CLASS = {

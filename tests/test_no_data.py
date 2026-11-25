@@ -26,7 +26,13 @@ from gwalerter.sema.enums import (
 )
 from gwalerter.sema.types import Alert, GNodeForest, LayoutLite, ReportEvent
 from gwalerter.store import Store
-from tests.conftest import FLEET_ROOT, forest, house_nodes, report_event, sample
+from tests.conftest import (
+    FLEET_ROOT,
+    forest,
+    house_nodes,
+    layout_sample,
+    report_event,
+)
 from tests.test_actor import actor, wrapped
 
 HOUSE = f"{FLEET_ROOT}.spruce"
@@ -49,7 +55,7 @@ def spruce_report(read_ms: int = BOOT_MS) -> ReportEvent:
 
 def spruce_layout() -> LayoutLite:
     return default_codec.from_dict(
-        {**sample("layout.lite.012.json"), "FromGNodeAlias": f"{HOUSE}.scada"},
+        {**layout_sample(), "FromGNodeAlias": f"{HOUSE}.scada"},
         expect=LayoutLite,
     )
 

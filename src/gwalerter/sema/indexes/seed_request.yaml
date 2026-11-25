@@ -7,8 +7,8 @@ initial_targets:
   types:
     report.event:
       versions: ["002", "003", "004"]
-    layout.lite:
-      versions: ["011", "012"]
+    # Bare: the latest published version, the one the whole fleet sends.
+    layout.lite: {}
     gw.alert:
       versions: ["000", "001"]
     gw.opsgenie.alert.create:

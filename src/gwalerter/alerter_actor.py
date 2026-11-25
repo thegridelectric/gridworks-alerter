@@ -37,7 +37,6 @@ from gwalerter.sema.types import (
     LayoutLite,
     ReportEvent,
 )
-from gwalerter.sema.types.old_versions.layout_lite_011 import LayoutLite011
 from gwalerter.sema.types.old_versions.report_event_002 import ReportEvent002
 from gwalerter.sema.types.old_versions.report_event_003 import ReportEvent003
 from gwalerter.store import Store
@@ -250,7 +249,7 @@ class AlerterActor(Orchestrator):
         if isinstance(message, (ReportEvent, ReportEvent002, ReportEvent003)):
             self.store.record_report(message, received_ms=received_ms)
             self.note_untracked(message.src)
-        elif isinstance(message, (LayoutLite, LayoutLite011)):
+        elif isinstance(message, LayoutLite):
             self.store.record_layout(message, received_ms=received_ms)
             self.note_untracked(message.from_g_node_alias)
         elif isinstance(message, GNodeForest):
