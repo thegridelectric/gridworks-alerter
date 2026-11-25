@@ -1,13 +1,12 @@
 metadata:
   generated_from: indexes/public_registry.yaml
-  generated_at: '2026-11-25T12:55:53Z'
+  generated_at: '2026-11-25T14:38:41Z'
   note: Transitive closure of initial_targets
 initial_targets:
 - report.event:002
 - report.event:003
 - report.event:004
-- layout.lite:011
-- layout.lite:012
+- layout.lite:014
 - gw.alert:000
 - gw.alert:001
 - gw.opsgenie.alert.create:000
@@ -21,14 +20,18 @@ worklist:
   formats:
     handle.name:
       path: definitions/formats/handle.name.yaml
+    hh.mm:
+      path: definitions/formats/hh.mm.yaml
+    iana.timezone.str:
+      path: definitions/formats/iana.timezone.str.yaml
     left.right.dot:
       path: definitions/formats/left.right.dot.yaml
     non.empty.string:
       path: definitions/formats/non.empty.string.yaml
     positive.int:
       path: definitions/formats/positive.int.yaml
-    positive.int.as.str:
-      path: definitions/formats/positive.int.as.str.yaml
+    sema.version:
+      path: definitions/formats/sema.version.yaml
     spaceheat.name:
       path: definitions/formats/spaceheat.name.yaml
     utc.milliseconds:
@@ -41,18 +44,15 @@ worklist:
     base.g.node.class:
       '000':
         path: definitions/enums/base.g.node.class/000.yaml
-    change.relay.state:
+    day.of.week:
       '000':
-        path: definitions/enums/change.relay.state/000.yaml
+        path: definitions/enums/day.of.week/000.yaml
     fsm.report.type:
       '000':
         path: definitions/enums/fsm.report.type/000.yaml
     g.node.status:
       '000':
         path: definitions/enums/g.node.status/000.yaml
-    gpm.from.hz.method:
-      '000':
-        path: definitions/enums/gpm.from.hz.method/000.yaml
     gw.alert.category:
       '000':
         path: definitions/enums/gw.alert.category/000.yaml
@@ -77,28 +77,17 @@ worklist:
       '000':
         path: definitions/enums/gw.platform.alert.kind/000.yaml
     gw1.actor.class:
-      009:
-        path: definitions/enums/gw1.actor.class/009.yaml
-      '011':
-        path: definitions/enums/gw1.actor.class/011.yaml
+      '014':
+        path: definitions/enums/gw1.actor.class/014.yaml
     gw1.emission.method:
       '000':
         path: definitions/enums/gw1.emission.method/000.yaml
     gw1.quantity:
-      '000':
-        path: definitions/enums/gw1.quantity/000.yaml
-    gw1.seasonal.storage.mode:
-      '000':
-        path: definitions/enums/gw1.seasonal.storage.mode/000.yaml
-    gw1.system.mode:
-      '000':
-        path: definitions/enums/gw1.system.mode/000.yaml
+      '003':
+        path: definitions/enums/gw1.quantity/003.yaml
     gw1.unit:
-      '000':
-        path: definitions/enums/gw1.unit/000.yaml
-    hz.calc.method:
-      '001':
-        path: definitions/enums/hz.calc.method/001.yaml
+      '003':
+        path: definitions/enums/gw1.unit/003.yaml
     log.level:
       '000':
         path: definitions/enums/log.level/000.yaml
@@ -108,27 +97,10 @@ worklist:
     relay.energization.state:
       '000':
         path: definitions/enums/relay.energization.state/000.yaml
-    relay.wiring.config:
-      '000':
-        path: definitions/enums/relay.wiring.config/000.yaml
-    spaceheat.make.model:
-      '007':
-        path: definitions/enums/spaceheat.make.model/007.yaml
     spaceheat.telemetry.name:
-      '006':
-        path: definitions/enums/spaceheat.telemetry.name/006.yaml
       '007':
         path: definitions/enums/spaceheat.telemetry.name/007.yaml
-    spaceheat.unit:
-      '001':
-        path: definitions/enums/spaceheat.unit/001.yaml
-    temp.calc.method:
-      '000':
-        path: definitions/enums/temp.calc.method/000.yaml
   types:
-    channel.config:
-      '000':
-        path: definitions/types/channel.config/000.yaml
     channel.readings:
       '002':
         path: definitions/types/channel.readings/002.yaml
@@ -136,15 +108,11 @@ worklist:
       '000':
         path: definitions/types/connectivity.edge.gt/000.yaml
     data.channel.gt:
-      '001':
-        path: definitions/types/data.channel.gt/001.yaml
-      '002':
-        path: definitions/types/data.channel.gt/002.yaml
+      '004':
+        path: definitions/types/data.channel.gt/004.yaml
     derived.channel.gt:
-      '000':
-        path: definitions/types/derived.channel.gt/000.yaml
-      '001':
-        path: definitions/types/derived.channel.gt/001.yaml
+      '003':
+        path: definitions/types/derived.channel.gt/003.yaml
     fsm.atomic.report:
       '000':
         path: definitions/types/fsm.atomic.report/000.yaml
@@ -184,41 +152,24 @@ worklist:
     gw.opsgenie.alert.create:
       '000':
         path: definitions/types/gw.opsgenie.alert.create/000.yaml
-    gw1.tank.temp.calibration:
+    gw.state.machine:
       '000':
-        path: definitions/types/gw1.tank.temp.calibration/000.yaml
-    gw1.tank.temp.calibration.map:
+        path: definitions/types/gw.state.machine/000.yaml
+    gw.tou.tariff:
       '000':
-        path: definitions/types/gw1.tank.temp.calibration.map/000.yaml
-    ha1.params:
-      '004':
-        path: definitions/types/ha1.params/004.yaml
-      '005':
-        path: definitions/types/ha1.params/005.yaml
-      '006':
-        path: definitions/types/ha1.params/006.yaml
-    i2c.multichannel.dt.relay.component.gt:
-      '002':
-        path: definitions/types/i2c.multichannel.dt.relay.component.gt/002.yaml
-      '003':
-        path: definitions/types/i2c.multichannel.dt.relay.component.gt/003.yaml
+        path: definitions/types/gw.tou.tariff/000.yaml
+    gw.tou.window:
+      '000':
+        path: definitions/types/gw.tou.window/000.yaml
+    gw1.unit.quantity.projection:
+      '001':
+        path: definitions/types/gw1.unit.quantity.projection/001.yaml
     layout.lite:
-      '011':
-        path: definitions/types/layout.lite/011.yaml
-      '012':
-        path: definitions/types/layout.lite/012.yaml
+      '014':
+        path: definitions/types/layout.lite/014.yaml
     machine.states:
       '000':
         path: definitions/types/machine.states/000.yaml
-    pico.flow.module.component.gt:
-      '000':
-        path: definitions/types/pico.flow.module.component.gt/000.yaml
-    pico.tank.module.component.gt:
-      '011':
-        path: definitions/types/pico.tank.module.component.gt/011.yaml
-    relay.actor.config:
-      '002':
-        path: definitions/types/relay.actor.config/002.yaml
     report:
       '002':
         path: definitions/types/report/002.yaml
@@ -231,14 +182,9 @@ worklist:
         path: definitions/types/report.event/003.yaml
       '004':
         path: definitions/types/report.event/004.yaml
-    sim.pico.tank.module.component.gt:
-      '000':
-        path: definitions/types/sim.pico.tank.module.component.gt/000.yaml
     spaceheat.node.gt:
-      '300':
-        path: definitions/types/spaceheat.node.gt/300.yaml
-      '301':
-        path: definitions/types/spaceheat.node.gt/301.yaml
+      '303':
+        path: definitions/types/spaceheat.node.gt/303.yaml
     spaceheat.telemetry.quantity.projection:
-      '000':
-        path: definitions/types/spaceheat.telemetry.quantity.projection/000.yaml
+      '001':
+        path: definitions/types/spaceheat.telemetry.quantity.projection/001.yaml

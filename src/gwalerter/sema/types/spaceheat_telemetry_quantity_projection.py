@@ -33,14 +33,14 @@ _PROJECTION = {
 
 
 class SpaceheatTelemetryQuantityProjection(SemaType):
-    """Sema: https://schemas.electricity.works/types/spaceheat.telemetry.quantity.projection/000"""
+    """Sema: https://schemas.electricity.works/types/spaceheat.telemetry.quantity.projection/001"""
 
     telemetry_name: SpaceheatTelemetryName
     quantity: Quantity
     type_name: Literal["spaceheat.telemetry.quantity.projection"] = (
         "spaceheat.telemetry.quantity.projection"
     )
-    version: Literal["000"] = "000"
+    version: Literal["001"] = "001"
 
     @classmethod
     def project(cls, telemetry_name: SpaceheatTelemetryName) -> Quantity:

@@ -7,7 +7,7 @@ from pathlib import Path
 from gwalerter.sema.codec import default_codec
 from gwalerter.sema.types import HackAlertSilences, LayoutLite, ReportEvent
 from gwalerter.store import Store
-from tests.conftest import sample
+from tests.conftest import layout_sample, sample
 
 
 def report_event() -> ReportEvent:
@@ -15,7 +15,7 @@ def report_event() -> ReportEvent:
 
 
 def layout_lite() -> LayoutLite:
-    return default_codec.from_dict(sample("layout.lite.012.json"), expect=LayoutLite)
+    return default_codec.from_dict(layout_sample(), expect=LayoutLite)
 
 
 def test_report_marks_house_heard_and_keeps_readings(store: Store) -> None:

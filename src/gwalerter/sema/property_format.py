@@ -11,9 +11,13 @@ HANDLE_NAME_PATTERN = re.compile(
     r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$"
 )
 
+HH_MM_PATTERN = re.compile(r"^([01][0-9]|2[0-3]):[0-5][0-9]$")
+
+IANA_TIMEZONE_STR_PATTERN = re.compile(r"^[A-Za-z_]+(/[A-Za-z0-9_+-]+){0,2}$")
+
 LEFT_RIGHT_DOT_PATTERN = re.compile(r"^[a-z][a-z0-9]*(\.[a-z0-9]+)*$")
 
-POSITIVE_INT_AS_STR_PATTERN = re.compile(r"^[1-9][0-9]*$")
+SEMA_VERSION_PATTERN = re.compile(r"^[0-9]{3}$")
 
 SPACEHEAT_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 
@@ -29,6 +33,26 @@ def is_handle_name(v: str) -> str:
 
     if not HANDLE_NAME_PATTERN.fullmatch(v):
         raise ValueError(f"<{v}>: Fails HandleName format.")
+
+    return v
+
+
+def is_hh_mm(v: str) -> str:
+    if not isinstance(v, str):
+        raise ValueError(f"<{v}>: hh.mm must be a string.")
+
+    if not HH_MM_PATTERN.fullmatch(v):
+        raise ValueError(f"<{v}>: Fails hh.mm format.")
+
+    return v
+
+
+def is_iana_timezone_str(v: str) -> str:
+    if not isinstance(v, str):
+        raise ValueError(f"<{v}>: iana.timezone.str must be a string.")
+
+    if not IANA_TIMEZONE_STR_PATTERN.fullmatch(v):
+        raise ValueError(f"<{v}>: Fails iana.timezone.str format.")
 
     return v
 
@@ -51,11 +75,13 @@ def is_positive_int(v: int) -> int:
     return v
 
 
-def is_positive_int_as_str(v: str) -> str:
+def is_sema_version(v: str) -> str:
     if not isinstance(v, str):
-        raise ValueError(f"<{v}>: positive.int.as.str must be a string.")
-    if not POSITIVE_INT_AS_STR_PATTERN.fullmatch(v):
-        raise ValueError(f"<{v}>: Fails positive.int.as.str format.")
+        raise ValueError(f"<{v}>: SemaVersion must be a string.")
+
+    if not SEMA_VERSION_PATTERN.fullmatch(v):
+        raise ValueError(f"<{v}>: Fails SemaVersion format (three digits).")
+
     return v
 
 
@@ -128,6 +154,16 @@ HandleName = Annotated[
     BeforeValidator(is_handle_name),
 ]
 
+HhMm = Annotated[
+    str,
+    BeforeValidator(is_hh_mm),
+]
+
+IanaTimezoneStr = Annotated[
+    str,
+    BeforeValidator(is_iana_timezone_str),
+]
+
 LeftRightDot = Annotated[
     str,
     BeforeValidator(is_left_right_dot),
@@ -143,9 +179,9 @@ PositiveInt = Annotated[
     BeforeValidator(is_positive_int),
 ]
 
-PositiveIntAsStr = Annotated[
+SemaVersion = Annotated[
     str,
-    BeforeValidator(is_positive_int_as_str),
+    BeforeValidator(is_sema_version),
 ]
 
 SpaceheatName = Annotated[
