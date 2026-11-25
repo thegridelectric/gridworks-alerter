@@ -154,7 +154,9 @@ review the file.
 
 ## Tests
 
-`./ci.sh` runs what CI runs: ruff, pyright, pytest. Tests marked
+`./ci.sh` runs what CI runs: ruff, pyright, the sema snapshot staging
+check, pytest. The staging check fails when the vendored snapshot has a
+staging word or the seed was edited without a regen. Tests marked
 `broker` need the dev broker on `localhost:5672` and self-skip without it.
 
 ## Deploy

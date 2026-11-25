@@ -12,6 +12,9 @@ step "uv sync (locked)" uv sync --all-groups --locked
 step "ruff check" uv run ruff check --no-fix .
 step "ruff format --check" uv run ruff format --check .
 step "pyright" uv run pyright
+step "sema snapshot staging check" uv run python -P \
+  src/gwalerter/sema/check_staging.py src/gwalerter/sema_seed_request.yaml \
+  --deploy-branch main
 
 # The broker tests need the gwbase dev broker (gw-dev-rabbit, started from
 # gridworks-base with ./arm.sh or ./x86.sh); without one they self-skip.
