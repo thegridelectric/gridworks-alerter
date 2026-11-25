@@ -15,7 +15,7 @@ classifiers = [
 ]
 dependencies = [
     "alembic>=1.17.2",
-    "gridworks-base>=0.6.0",
+    "gridworks-base>=0.7.3",
     "httpx>=0.27",
     "pydantic>=2.8.2",
     "pydantic-settings>=2.3.4",

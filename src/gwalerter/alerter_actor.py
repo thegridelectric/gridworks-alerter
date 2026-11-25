@@ -25,11 +25,13 @@ from gwbase.topology import EAR_EXCHANGE
 from gwbase.transport_encoding import RoutingEnvelope, TransportClass
 
 from gwalerter.config import AlerterSettings
+from gwalerter.critical_glitch import CriticalGlitchRule
 from gwalerter.no_data import NoDataRule
 from gwalerter.sema.codec import SemaCodec, default_codec
 from gwalerter.sema.property_format import UTCMilliseconds
 from gwalerter.sema.types import (
     Alert,
+    Glitch,
     GNodeForest,
     HackAlertSilences,
     LayoutLite,
@@ -44,6 +46,7 @@ TRACKED_TYPES: frozenset[str] = frozenset({
     ReportEvent.type_name_value(),
     LayoutLite.type_name_value(),
     GNodeForest.type_name_value(),
+    Glitch.type_name_value(),
 })
 
 
@@ -77,6 +80,11 @@ class AlerterActor(Orchestrator):
             silence_ms=settings.no_data_silence_s * 1000,
             heard_floor_ms=self.clock_ms(),
             heard_period_ms=settings.heard_period_s * 1000,
+        )
+        self.critical_glitch = CriticalGlitchRule(
+            store,
+            src=settings.service_alias,
+            hold_ms=settings.critical_glitch_hold_s * 1000,
         )
         self.silences_path = settings.silences_path
         self.silences_file_state = ""
@@ -127,7 +135,10 @@ class AlerterActor(Orchestrator):
 
     def evaluate_detectors(self) -> None:
         self.refresh_silences()
-        for alert in self.no_data.evaluate(self.clock_ms()):
+        now_ms = self.clock_ms()
+        for alert in self.no_data.evaluate(now_ms):
+            self.emit(alert)
+        for alert in self.critical_glitch.evaluate(now_ms):
             self.emit(alert)
 
     # -- silences -----------------------------------------------------------
@@ -244,6 +255,11 @@ class AlerterActor(Orchestrator):
             self.note_untracked(message.from_g_node_alias)
         elif isinstance(message, GNodeForest):
             self.store.upsert_forest(message)
+        elif isinstance(message, Glitch):
+            for alert in self.critical_glitch.on_glitch(
+                message, received_ms=received_ms
+            ):
+                self.emit(alert)
         else:
             self.logger.warning(
                 "Tracked type %s decoded as %s; not stored",

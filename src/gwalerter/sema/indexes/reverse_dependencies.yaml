@@ -219,6 +219,10 @@ enums:
     '001':
       used_by:
       - pico.flow.module.component.gt:000
+  log.level:
+    '000':
+      used_by:
+      - glitch:000
   relay.closed.or.open:
     '000':
       used_by:
@@ -273,6 +277,7 @@ formats:
     - g.node.forest.request:000
     - g.node.forest:002
     - g.node.gt:006
+    - glitch:000
     - gw.alert:000
     - gw.alert:001
     - gw.hack.alert.silences:000
@@ -320,6 +325,7 @@ formats:
     - derived.channel.gt:001
     - fsm.full.report:000
     - fsm.full.report:001
+    - glitch:000
     - i2c.multichannel.dt.relay.component.gt:003
     - pico.flow.module.component.gt:000
     - relay.actor.config:002
@@ -331,6 +337,7 @@ formats:
     - fsm.atomic.report:000
     - fsm.atomic.report:001
     - g.node.forest:002
+    - glitch:000
     - gw.alert:000
     - gw.alert:001
     - gw.opsgenie.alert:000

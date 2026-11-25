@@ -1,6 +1,6 @@
 metadata:
   registry_version: "1.0"
-  last_updated: "2026-10-19T12:25:00Z"
+  last_updated: "2026-11-24T18:40:00Z"
   maintainer: "gridworks-energy"
 
 formats:
@@ -291,6 +291,14 @@ enums:
         schema_url: "https://schemas.electricity.works/enums/hz.calc.method/001"
         created: "2024-10-23T19:32:00Z"
         status: "published"
+
+  log.level:
+    owner: gridworks-energy
+    enum_type: "literal"
+    description: "Logging level."
+    schema_url: "https://schemas.electricity.works/enums/log.level/000"
+    created: "2026-05-13T00:00:00Z"
+    status: "published"
 
   relay.closed.or.open:
     owner: gridworks-energy
@@ -620,6 +628,25 @@ types:
             - "g.node.status:000"
             - "left.right.dot"
             - "uuid4.str"
+
+  glitch:
+    latest_version: "000"
+    owner: gridworks-energy
+    versioning_strategy: "literal"
+    description: "Report of an unexpected system event with logging level, source node, and detail."
+
+    versions:
+      "000":
+        schema_url: "https://schemas.electricity.works/types/glitch/000"
+        created: "2026-05-13T00:00:00Z"
+        status: "published"
+        summary: "Initial Sema version"
+        direct_dependencies:
+          structural:
+            - "left.right.dot"
+            - "log.level:000"
+            - "spaceheat.name"
+            - "utc.milliseconds"
 
   gw.alert:
     latest_version: "001"
