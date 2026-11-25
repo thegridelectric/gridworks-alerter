@@ -18,6 +18,7 @@ enums:
   gw1.system.mode: system.mode
   gw1.unit: unit
   hz.calc.method: hz.calc.method
+  log.level: log.level
   relay.closed.or.open: relay.closed.or.open
   relay.energization.state: relay.energization.state
   relay.wiring.config: relay.wiring.config
@@ -36,6 +37,7 @@ types:
   g.node.forest: g.node.forest
   g.node.forest.request: g.node.forest.request
   g.node.gt: g.node.gt
+  glitch: glitch
   gw.alert: alert
   gw.hack.alert.silences: hack.alert.silences
   gw.opsgenie.alert: opsgenie.alert

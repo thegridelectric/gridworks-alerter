@@ -91,6 +91,13 @@ types:
       "006":
         summary: "- Axiom 2 (PhysicalGNodeLocations) becomes activation-conditioned: PositionPointId is mandatory only when Status is Active — a Pending physical GNode may be locationless"
 
+  glitch:
+    latest_version: "000"
+    versioning_strategy: "literal"
+    versions:
+      "000":
+        summary: "Initial Sema version"
+
   gw.alert:
     latest_version: "001"
     versioning_strategy: "literal"
@@ -385,6 +392,12 @@ enums:
     note: "This enum is versioned; new versions are additive only."
     versions:
       "001": {}
+
+  log.level:
+    enum_type: "literal"
+    note: "This enum is literal; version 000 is immutable and exclusive."
+    versions:
+      "000": {}
 
   relay.closed.or.open:
     enum_type: "literal"

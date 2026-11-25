@@ -1,6 +1,6 @@
 metadata:
   generated_from: indexes/public_registry.yaml
-  generated_at: '2026-10-19T12:29:56Z'
+  generated_at: '2026-11-25T12:55:53Z'
   note: Transitive closure of initial_targets
 initial_targets:
 - report.event:002
@@ -16,6 +16,7 @@ initial_targets:
 - g.node.forest:002
 - g.node.forest.request:000
 - gw.hack.alert.silences:000
+- glitch:000
 worklist:
   formats:
     handle.name:
@@ -98,6 +99,9 @@ worklist:
     hz.calc.method:
       '001':
         path: definitions/enums/hz.calc.method/001.yaml
+    log.level:
+      '000':
+        path: definitions/enums/log.level/000.yaml
     relay.closed.or.open:
       '000':
         path: definitions/enums/relay.closed.or.open/000.yaml
@@ -160,6 +164,9 @@ worklist:
     g.node.gt:
       '006':
         path: definitions/types/g.node.gt/006.yaml
+    glitch:
+      '000':
+        path: definitions/types/glitch/000.yaml
     gw.alert:
       '000':
         path: definitions/types/gw.alert/000.yaml

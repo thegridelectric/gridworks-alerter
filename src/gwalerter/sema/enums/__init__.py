@@ -10,6 +10,7 @@ from gwalerter.sema.enums.g_node_status import GNodeStatus
 from gwalerter.sema.enums.gpm_from_hz_method import GpmFromHzMethod
 from gwalerter.sema.enums.house_alert_kind import HouseAlertKind
 from gwalerter.sema.enums.hz_calc_method import HzCalcMethod
+from gwalerter.sema.enums.log_level import LogLevel
 from gwalerter.sema.enums.opsgenie_alert_status import OpsgenieAlertStatus
 from gwalerter.sema.enums.opsgenie_priority import OpsgeniePriority
 from gwalerter.sema.enums.platform_alert_kind import PlatformAlertKind
@@ -38,6 +39,7 @@ __all__ = [
     "GpmFromHzMethod",
     "HouseAlertKind",
     "HzCalcMethod",
+    "LogLevel",
     "OpsgenieAlertStatus",
     "OpsgeniePriority",
     "PlatformAlertKind",

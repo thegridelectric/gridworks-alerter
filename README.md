@@ -57,6 +57,16 @@ changes kind. A report back from the scada resolves the alert on the
 next tick, with that report's readings as the evidence; a layout is
 stored for its meaning and is no sign of life.
 
+**`CriticalGlitch`** (house): the scada's own Critical glitch, relayed.
+A Critical glitch from a tracked house's scada raises the alert with the
+glitch's summary and node; a Warning does not page. A repeat of the same
+summary inside the hold (`GWALERTER_CRITICAL_GLITCH_HOLD_S`, 7200 s)
+extends it, the hold passing with no repeat resolves it, and a Critical
+with a different summary supersedes the open alert, resolving it and
+raising a new one, so each distinct summary pages once. One alert is open
+per house at a time. The conditions the scada judges itself (a pump that
+will not run, a freezing or cold critical zone) page through this kind.
+
 **`BrokerUnreachable`** (platform): a door of the fleet's broker has
 failed the prober's check three probes running
 (`GWALERTER_PROBE_FAILURES_TO_RAISE`), one probe a minute

@@ -63,6 +63,11 @@ types:
     versioning_strategy: literal
     versions:
       '006': definitions/types/g.node.gt/006.yaml
+  glitch:
+    latest_version: '000'
+    versioning_strategy: literal
+    versions:
+      '000': definitions/types/glitch/000.yaml
   gw.alert:
     latest_version: '001'
     versioning_strategy: literal
@@ -255,6 +260,9 @@ enums:
     latest_version: '001'
     versions:
       '001': definitions/enums/hz.calc.method/001.yaml
+  log.level:
+    enum_type: literal
+    schema: definitions/enums/log.level/000.yaml
   relay.closed.or.open:
     enum_type: literal
     schema: definitions/enums/relay.closed.or.open/000.yaml

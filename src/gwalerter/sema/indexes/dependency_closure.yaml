@@ -150,6 +150,16 @@ types:
       - uuid4.str
       types: []
       versionless_types: []
+  glitch:
+    '000':
+      enums:
+      - log.level:000
+      formats:
+      - left.right.dot
+      - spaceheat.name
+      - utc.milliseconds
+      types: []
+      versionless_types: []
   gw.alert:
     '000':
       enums:

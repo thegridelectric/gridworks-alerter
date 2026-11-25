@@ -66,6 +66,10 @@ class AlerterSettings(ServiceSettings):
     # the broker carries its data, and no door is raised unreachable.
     heard_period_s: int = 60
 
+    # CriticalGlitch: an open alert whose summary has not repeated for
+    # this long resolves.
+    critical_glitch_hold_s: int = 7200
+
     # How often the detectors re-evaluate their rules.
     detector_tick_s: int = 10
 

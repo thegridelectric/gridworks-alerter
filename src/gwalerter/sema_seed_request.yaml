@@ -23,6 +23,8 @@ initial_targets:
       versions: ["000"]
     gw.hack.alert.silences:
       versions: ["000"]
+    glitch:
+      versions: ["000"]
 
 local_names:
   strip_prefixes: [gw1, gw]
